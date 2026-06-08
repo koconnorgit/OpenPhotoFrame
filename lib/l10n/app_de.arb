@@ -135,6 +135,18 @@
       }
     }
   },
+  "storagePhotosOnDevice": "Fotos auf dem Gerät",
+  "storageFreeOfTotal": "{free} frei von {total}",
+  "@storageFreeOfTotal": {
+    "placeholders": {
+      "free": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
   "neverSynced": "Noch nie synchronisiert",
   "lastSyncJustNow": "Letzte Sync: Gerade eben",
   "lastSyncMinutesAgo": "Letzte Sync: vor {minutes} Min",

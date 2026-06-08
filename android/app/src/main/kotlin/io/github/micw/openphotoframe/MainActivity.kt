@@ -14,6 +14,7 @@ class MainActivity : FlutterActivity() {
 
     private lateinit var screenControlHandler: ScreenControlHandler
     private lateinit var keepAliveHandler: KeepAliveHandler
+    private lateinit var storageInfoHandler: StorageInfoHandler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +44,9 @@ class MainActivity : FlutterActivity() {
         
         keepAliveHandler = KeepAliveHandler(this)
         keepAliveHandler.configureChannel(flutterEngine)
+
+        storageInfoHandler = StorageInfoHandler()
+        storageInfoHandler.configureChannel(flutterEngine)
     }
 
     override fun onStart() {

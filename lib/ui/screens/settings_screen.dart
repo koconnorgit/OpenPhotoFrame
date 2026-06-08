@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../domain/interfaces/config_provider.dart';
 import '../../domain/interfaces/photo_repository.dart';
+import '../../domain/interfaces/storage_provider.dart';
+import '../../infrastructure/services/storage_info_service.dart';
 import '../../infrastructure/repositories/hybrid_photo_repository.dart';
 import '../../infrastructure/services/photo_service.dart';
 import '../../infrastructure/services/nextcloud_source_config.dart';
@@ -101,6 +103,10 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   List<SmbFolder> _availableSmbFolders = [];
   bool _isLoadingSmbFolders = false;
   String? _smbFolderLoadError;
+
+  // Storage usage indicator
+  final StorageInfoService _storageInfoService = StorageInfoService();
+  Future<StorageInfo>? _storageInfoFuture;
 
   // Local folder path
   late String _localFolderPath;
@@ -235,6 +241,17 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     // Load default folder path async
     _loadDefaultFolderPath();
     _loadAppVersion();
+    _refreshStorageInfo();
+  }
+
+  /// (Re)computes the storage usage indicator. Called on open and after a sync.
+  void _refreshStorageInfo() {
+    final storage = context.read<StorageProvider>();
+    setState(() {
+      _storageInfoFuture = storage
+          .getPhotoDirectory()
+          .then((dir) => _storageInfoService.load(dir));
+    });
   }
   
   Future<void> _loadDefaultFolderPath() async {
@@ -589,11 +606,14 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             const SizedBox(height: 8),
             _buildLastSyncInfo(),
           ],
-          
+
+          const SizedBox(height: 12),
+          _buildStorageInfo(),
+
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 16),
-          
+
           // === DISPLAY SCHEDULE SETTINGS ===
           _buildSectionHeader(AppLocalizations.of(context)!.sectionDisplaySchedule),
           const SizedBox(height: 8),
@@ -1802,6 +1822,87 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
   
+  /// Formats a byte count as a compact human-readable string (e.g. "1.2 GB").
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    var value = bytes / 1024;
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    return '${value.toStringAsFixed(value >= 100 ? 0 : 1)} ${units[unitIndex]}';
+  }
+
+  /// Small indicator showing how much space the synced photos use versus the
+  /// free space available on the device.
+  Widget _buildStorageInfo() {
+    final localizations = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return FutureBuilder<StorageInfo>(
+      future: _storageInfoFuture,
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        final photosText =
+            info == null ? '…' : _formatBytes(info.photosBytes);
+
+        // Fraction of the device filesystem that is currently used.
+        double? usedFraction;
+        if (info != null && info.hasDeviceStats && info.totalBytes! > 0) {
+          usedFraction =
+              (info.totalBytes! - info.freeBytes!) / info.totalBytes!;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.sd_storage,
+                      size: 18, color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(localizations.storagePhotosOnDevice,
+                        style: theme.textTheme.bodyMedium),
+                  ),
+                  Text(
+                    photosText,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              if (usedFraction != null) ...[
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: usedFraction.clamp(0.0, 1.0),
+                    minHeight: 6,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  localizations.storageFreeOfTotal(
+                    _formatBytes(info!.freeBytes!),
+                    _formatBytes(info.totalBytes!),
+                  ),
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildLastSyncInfo() {
     final config = context.read<ConfigProvider>();
     final lastSync = config.lastSuccessfulSync;
@@ -2079,10 +2180,12 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         setState(() {
           _isSyncing = false;
         });
+        // Photos may have changed; refresh the storage usage indicator.
+        _refreshStorageInfo();
       }
     }
   }
-  
+
   // === Device Admin and Schedule Methods ===
   
   Future<void> _checkDeviceAdmin() async {

@@ -312,6 +312,14 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get storagePhotosOnDevice => 'Fotos auf dem Gerät';
+
+  @override
+  String storageFreeOfTotal(String free, String total) {
+    return '$free frei von $total';
+  }
+
+  @override
   String get neverSynced => 'Noch nie synchronisiert';
 
   @override

@@ -650,6 +650,18 @@ abstract class AppLocalizations {
   /// **'Error: {error}'**
   String syncError(String error);
 
+  /// No description provided for @storagePhotosOnDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos on device'**
+  String get storagePhotosOnDevice;
+
+  /// No description provided for @storageFreeOfTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'{free} free of {total}'**
+  String storageFreeOfTotal(String free, String total);
+
   /// No description provided for @neverSynced.
   ///
   /// In en, this message translates to:
