@@ -46,6 +46,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get showClockSubtitle => 'Uhrzeit auf der Diashow anzeigen';
 
   @override
+  String get clockRandomPosition => 'Zufällige Position';
+
+  @override
+  String get clockRandomPositionSubtitle =>
+      'Uhr bei jedem Fotowechsel in eine zufällige Ecke verschieben';
+
+  @override
   String get size => 'Größe';
 
   @override

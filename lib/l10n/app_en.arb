@@ -15,6 +15,8 @@
   "sectionClock": "Clock",
   "showClock": "Show Clock",
   "showClockSubtitle": "Display time on slideshow",
+  "clockRandomPosition": "Random position",
+  "clockRandomPositionSubtitle": "Move the clock to a random corner on each photo change",
   "size": "Size",
   "position": "Position",
   

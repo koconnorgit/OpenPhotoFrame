@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -54,7 +55,17 @@ class SlideshowScreen extends StatefulWidget {
 }
 
 class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
+  static const List<String> _clockCorners = [
+    'bottomRight',
+    'bottomLeft',
+    'topRight',
+    'topLeft',
+  ];
+  final Random _random = Random();
+
   PhotoEntry? _currentPhoto;
+  // Current clock corner when random clock positioning is enabled.
+  String _clockCorner = 'bottomRight';
   Timer? _timer;
   bool _isLoading = true;
   StreamSubscription? _photosSubscription;
@@ -412,6 +423,13 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     });
   }
 
+  /// Picks a random clock corner, avoiding the one currently in use so the
+  /// clock visibly moves on each photo change.
+  String _pickClockCorner() {
+    final candidates = _clockCorners.where((c) => c != _clockCorner).toList();
+    return candidates[_random.nextInt(candidates.length)];
+  }
+
   void _nextSlide() {
     final service = context.read<PhotoService>();
     final photo = service.nextPhoto();
@@ -509,6 +527,12 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
 
     // Log EXIF metadata when displaying a photo
     _logPhotoMetadata(photo);
+
+    // When random clock positioning is enabled, move the clock to a new
+    // corner on every photo change.
+    if (config.showClock && config.clockRandomPosition) {
+      _clockCorner = _pickClockCorner();
+    }
 
     setState(() {
       _isLoading = false;
@@ -726,11 +750,16 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
 
           // 2. Clock Overlay
           if (config.showClock)
-            ClockOverlay(
-              key: ValueKey('clock_${config.clockSize}_${config.clockPosition}'),
-              size: config.clockSize,
-              position: config.clockPosition,
-            ),
+            Builder(builder: (context) {
+              final clockPosition = config.clockRandomPosition
+                  ? _clockCorner
+                  : config.clockPosition;
+              return ClockOverlay(
+                key: ValueKey('clock_${config.clockSize}_$clockPosition'),
+                size: config.clockSize,
+                position: clockPosition,
+              );
+            }),
 
           // 3. Photo Info Overlay
           if (config.showPhotoInfo && _currentPhoto != null)

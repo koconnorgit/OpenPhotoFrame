@@ -15,6 +15,8 @@
   "sectionClock": "Uhr",
   "showClock": "Uhr anzeigen",
   "showClockSubtitle": "Uhrzeit auf der Diashow anzeigen",
+  "clockRandomPosition": "Zufällige Position",
+  "clockRandomPositionSubtitle": "Uhr bei jedem Fotowechsel in eine zufällige Ecke verschieben",
   "size": "Größe",
   "position": "Position",
   

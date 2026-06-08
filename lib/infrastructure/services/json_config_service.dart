@@ -338,7 +338,15 @@ class JsonConfigService extends ConfigProvider {
   set clockPosition(String value) {
     _config['clock_position'] = value;
   }
-  
+
+  @override
+  bool get clockRandomPosition => _config['clock_random_position'] ?? false;
+
+  @override
+  set clockRandomPosition(bool value) {
+    _config['clock_random_position'] = value;
+  }
+
   // Display schedule settings (day/night mode)
   @override
   bool get scheduleEnabled => _config['schedule_enabled'] ?? false;

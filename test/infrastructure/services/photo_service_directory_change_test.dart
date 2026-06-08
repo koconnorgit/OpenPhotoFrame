@@ -131,6 +131,11 @@ class MockConfigProvider extends ChangeNotifier implements ConfigProvider {
   set clockPosition(String value) {}
 
   @override
+  bool get clockRandomPosition => false;
+  @override
+  set clockRandomPosition(bool value) {}
+
+  @override
   bool get showPhotoInfo => false;
   @override
   set showPhotoInfo(bool value) {}

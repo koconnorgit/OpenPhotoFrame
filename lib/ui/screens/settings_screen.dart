@@ -55,6 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late bool _showClock;
   late String _clockSize;
   late String _clockPosition;
+  late bool _clockRandomPosition;
   
   // Photo info settings
   late bool _showPhotoInfo;
@@ -146,6 +147,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _showClock = config.showClock;
     _clockSize = config.clockSize;
     _clockPosition = config.clockPosition;
+    _clockRandomPosition = config.clockRandomPosition;
     
     // Photo info settings
     _showPhotoInfo = config.showPhotoInfo;
@@ -341,6 +343,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     config.showClock = _showClock;
     config.clockSize = _clockSize;
     config.clockPosition = _clockPosition;
+    config.clockRandomPosition = _clockRandomPosition;
     
     // Photo info settings
     config.showPhotoInfo = _showPhotoInfo;
@@ -468,7 +471,20 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             const SizedBox(height: 8),
             _buildClockSizeSelector(),
             const SizedBox(height: 8),
-            _buildClockPositionSelector(),
+            SwitchListTile(
+              title: Text(AppLocalizations.of(context)!.clockRandomPosition),
+              subtitle: Text(AppLocalizations.of(context)!.clockRandomPositionSubtitle),
+              secondary: const Icon(Icons.shuffle),
+              value: _clockRandomPosition,
+              onChanged: (value) {
+                setState(() => _clockRandomPosition = value);
+              },
+            ),
+            // Manual corner only matters when not randomizing
+            if (!_clockRandomPosition) ...[
+              const SizedBox(height: 8),
+              _buildClockPositionSelector(),
+            ],
           ],
           
           const SizedBox(height: 24),

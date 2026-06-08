@@ -170,6 +170,18 @@ abstract class AppLocalizations {
   /// **'Display time on slideshow'**
   String get showClockSubtitle;
 
+  /// No description provided for @clockRandomPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Random position'**
+  String get clockRandomPosition;
+
+  /// No description provided for @clockRandomPositionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Move the clock to a random corner on each photo change'**
+  String get clockRandomPositionSubtitle;
+
   /// No description provided for @size.
   ///
   /// In en, this message translates to:

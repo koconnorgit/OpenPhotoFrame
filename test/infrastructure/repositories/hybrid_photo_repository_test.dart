@@ -94,6 +94,12 @@ class FakeConfigProvider extends ChangeNotifier implements ConfigProvider {
   set clockPosition(String value) {}
 
   @override
+  bool get clockRandomPosition => false;
+
+  @override
+  set clockRandomPosition(bool value) {}
+
+  @override
   bool get scheduleEnabled => false;
 
   @override

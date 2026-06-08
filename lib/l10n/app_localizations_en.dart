@@ -45,6 +45,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showClockSubtitle => 'Display time on slideshow';
 
   @override
+  String get clockRandomPosition => 'Random position';
+
+  @override
+  String get clockRandomPositionSubtitle =>
+      'Move the clock to a random corner on each photo change';
+
+  @override
   String get size => 'Size';
 
   @override

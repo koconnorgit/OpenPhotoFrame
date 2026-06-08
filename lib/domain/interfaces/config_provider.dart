@@ -46,7 +46,10 @@ abstract class ConfigProvider extends ChangeNotifier {
   
   String get clockPosition; // 'bottomRight', 'bottomLeft', 'topRight', 'topLeft'
   set clockPosition(String value);
-  
+
+  bool get clockRandomPosition; // Move clock to a random corner on each photo change
+  set clockRandomPosition(bool value);
+
   // Display schedule settings (day/night mode)
   bool get scheduleEnabled; // Enable day/night schedule
   set scheduleEnabled(bool value);
