@@ -106,6 +106,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextcloudSubtitle => 'Sync from Nextcloud public share link';
 
   @override
+  String get smb => 'Network Share (SMB)';
+
+  @override
+  String get smbSubtitle => 'Sync from a local network SMB/CIFS share';
+
+  @override
   String get loading => 'Loading...';
 
   @override
@@ -196,6 +202,71 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String nextcloudFoldersLoadError(String error) {
+    return 'Error loading folders: $error';
+  }
+
+  @override
+  String get smbHost => 'Server host or IP';
+
+  @override
+  String get smbHostHint => '192.168.1.10 or nas.local';
+
+  @override
+  String get smbShare => 'Share name';
+
+  @override
+  String get smbShareHint => 'photos';
+
+  @override
+  String get smbPath => 'Folder (optional)';
+
+  @override
+  String get smbPathHint => 'albums/2024';
+
+  @override
+  String get smbDomain => 'Domain (optional)';
+
+  @override
+  String get smbUsername => 'Username';
+
+  @override
+  String get smbUsernameHint => 'Leave empty for guest access';
+
+  @override
+  String get smbPassword => 'Password';
+
+  @override
+  String get syncAllSmbFolders => 'All folders';
+
+  @override
+  String get syncAllSmbFoldersSubtitle =>
+      'Sync images from the share root and every subfolder';
+
+  @override
+  String get syncSelectedSmbFolders => 'Selected folders';
+
+  @override
+  String get syncSelectedSmbFoldersSubtitle =>
+      'Choose the folders whose direct images should be used';
+
+  @override
+  String get loadSmbFolders => 'Load folders';
+
+  @override
+  String get loadingSmbFolders => 'Loading folders...';
+
+  @override
+  String get smbFolderSelectionHint =>
+      'Select the share root and any subfolders you want to include.';
+
+  @override
+  String get smbShareRoot => 'Share root';
+
+  @override
+  String get smbShareRootSubtitle => 'Images directly in the base folder';
+
+  @override
+  String smbFoldersLoadError(String error) {
     return 'Error loading folders: $error';
   }
 

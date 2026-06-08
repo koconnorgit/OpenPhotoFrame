@@ -18,6 +18,8 @@ import 'infrastructure/services/exif_metadata_provider.dart';
 import 'infrastructure/services/nextcloud_source_config.dart';
 import 'infrastructure/services/nextcloud_sync_service.dart';
 import 'infrastructure/services/noop_sync_service.dart';
+import 'infrastructure/services/smb_source_config.dart';
+import 'infrastructure/services/smb_sync_service.dart';
 import 'infrastructure/services/photo_service.dart';
 import 'infrastructure/services/local_storage_provider.dart';
 import 'infrastructure/services/native_display_controller.dart';
@@ -116,8 +118,13 @@ class OpenPhotoFrameApp extends StatelessWidget {
                     sourceConfig: nextcloudConfig,
                   );
                 }
+              } else if (type == 'smb') {
+                final smbConfig = SmbSourceConfig.fromMap(sourceConfig);
+                if (smbConfig.isConfigured) {
+                  return SmbSyncService.fromConfig(smbConfig, storage);
+                }
               }
-              
+
               return NoOpSyncService();
             }
             

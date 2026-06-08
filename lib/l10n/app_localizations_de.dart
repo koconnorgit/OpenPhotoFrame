@@ -108,6 +108,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Von Nextcloud öffentlichem Link synchronisieren';
 
   @override
+  String get smb => 'Netzwerkfreigabe (SMB)';
+
+  @override
+  String get smbSubtitle =>
+      'Von einer lokalen SMB/CIFS-Netzwerkfreigabe synchronisieren';
+
+  @override
   String get loading => 'Lädt...';
 
   @override
@@ -198,6 +205,71 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String nextcloudFoldersLoadError(String error) {
+    return 'Fehler beim Laden der Ordner: $error';
+  }
+
+  @override
+  String get smbHost => 'Server-Host oder IP';
+
+  @override
+  String get smbHostHint => '192.168.1.10 oder nas.local';
+
+  @override
+  String get smbShare => 'Freigabename';
+
+  @override
+  String get smbShareHint => 'photos';
+
+  @override
+  String get smbPath => 'Ordner (optional)';
+
+  @override
+  String get smbPathHint => 'albums/2024';
+
+  @override
+  String get smbDomain => 'Domäne (optional)';
+
+  @override
+  String get smbUsername => 'Benutzername';
+
+  @override
+  String get smbUsernameHint => 'Für Gastzugriff leer lassen';
+
+  @override
+  String get smbPassword => 'Passwort';
+
+  @override
+  String get syncAllSmbFolders => 'Alle Ordner';
+
+  @override
+  String get syncAllSmbFoldersSubtitle =>
+      'Bilder aus dem Basisordner und allen Unterordnern synchronisieren';
+
+  @override
+  String get syncSelectedSmbFolders => 'Ausgewählte Ordner';
+
+  @override
+  String get syncSelectedSmbFoldersSubtitle =>
+      'Wähle die Ordner, deren Bilder verwendet werden sollen';
+
+  @override
+  String get loadSmbFolders => 'Ordner laden';
+
+  @override
+  String get loadingSmbFolders => 'Ordner werden geladen...';
+
+  @override
+  String get smbFolderSelectionHint =>
+      'Wähle den Basisordner und alle gewünschten Unterordner aus.';
+
+  @override
+  String get smbShareRoot => 'Basisordner';
+
+  @override
+  String get smbShareRootSubtitle => 'Bilder direkt im Basisordner';
+
+  @override
+  String smbFoldersLoadError(String error) {
     return 'Fehler beim Laden der Ordner: $error';
   }
 

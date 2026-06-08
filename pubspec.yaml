@@ -38,6 +38,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   webdav_client: ^1.2.2
+  smb_connect: ^0.0.9
   path_provider: ^2.1.5
   wakelock_plus: ^1.4.0
   screen_brightness: ^2.1.7

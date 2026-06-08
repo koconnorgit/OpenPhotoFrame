@@ -36,6 +36,8 @@
   "localFolderSubtitle": "Fotos aus einem lokalen Ordner verwenden",
   "nextcloud": "Nextcloud",
   "nextcloudSubtitle": "Von Nextcloud öffentlichem Link synchronisieren",
+  "smb": "Netzwerkfreigabe (SMB)",
+  "smbSubtitle": "Von einer lokalen SMB/CIFS-Netzwerkfreigabe synchronisieren",
   "loading": "Lädt...",
   "loadingAlbums": "Alben werden geladen...",
   "tapToLoadAlbums": "Tippen um Fotoalben zu laden",
@@ -86,7 +88,35 @@
       }
     }
   },
-  
+
+  "smbHost": "Server-Host oder IP",
+  "smbHostHint": "192.168.1.10 oder nas.local",
+  "smbShare": "Freigabename",
+  "smbShareHint": "photos",
+  "smbPath": "Ordner (optional)",
+  "smbPathHint": "albums/2024",
+  "smbDomain": "Domäne (optional)",
+  "smbUsername": "Benutzername",
+  "smbUsernameHint": "Für Gastzugriff leer lassen",
+  "smbPassword": "Passwort",
+  "syncAllSmbFolders": "Alle Ordner",
+  "syncAllSmbFoldersSubtitle": "Bilder aus dem Basisordner und allen Unterordnern synchronisieren",
+  "syncSelectedSmbFolders": "Ausgewählte Ordner",
+  "syncSelectedSmbFoldersSubtitle": "Wähle die Ordner, deren Bilder verwendet werden sollen",
+  "loadSmbFolders": "Ordner laden",
+  "loadingSmbFolders": "Ordner werden geladen...",
+  "smbFolderSelectionHint": "Wähle den Basisordner und alle gewünschten Unterordner aus.",
+  "smbShareRoot": "Basisordner",
+  "smbShareRootSubtitle": "Bilder direkt im Basisordner",
+  "smbFoldersLoadError": "Fehler beim Laden der Ordner: {error}",
+  "@smbFoldersLoadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
   "autoSyncInterval": "Auto-Sync-Intervall",
   "disabled": "Deaktiviert",
   "deleteOrphanedFiles": "Verwaiste Dateien löschen",

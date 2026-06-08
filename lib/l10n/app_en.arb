@@ -36,6 +36,8 @@
   "localFolderSubtitle": "Use photos from a local folder",
   "nextcloud": "Nextcloud",
   "nextcloudSubtitle": "Sync from Nextcloud public share link",
+  "smb": "Network Share (SMB)",
+  "smbSubtitle": "Sync from a local network SMB/CIFS share",
   "loading": "Loading...",
   "loadingAlbums": "Loading albums...",
   "tapToLoadAlbums": "Tap to load device photo albums",
@@ -86,7 +88,35 @@
       }
     }
   },
-  
+
+  "smbHost": "Server host or IP",
+  "smbHostHint": "192.168.1.10 or nas.local",
+  "smbShare": "Share name",
+  "smbShareHint": "photos",
+  "smbPath": "Folder (optional)",
+  "smbPathHint": "albums/2024",
+  "smbDomain": "Domain (optional)",
+  "smbUsername": "Username",
+  "smbUsernameHint": "Leave empty for guest access",
+  "smbPassword": "Password",
+  "syncAllSmbFolders": "All folders",
+  "syncAllSmbFoldersSubtitle": "Sync images from the share root and every subfolder",
+  "syncSelectedSmbFolders": "Selected folders",
+  "syncSelectedSmbFoldersSubtitle": "Choose the folders whose direct images should be used",
+  "loadSmbFolders": "Load folders",
+  "loadingSmbFolders": "Loading folders...",
+  "smbFolderSelectionHint": "Select the share root and any subfolders you want to include.",
+  "smbShareRoot": "Share root",
+  "smbShareRootSubtitle": "Images directly in the base folder",
+  "smbFoldersLoadError": "Error loading folders: {error}",
+  "@smbFoldersLoadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
   "autoSyncInterval": "Auto-Sync Interval",
   "disabled": "Disabled",
   "deleteOrphanedFiles": "Delete orphaned files",

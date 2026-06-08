@@ -284,6 +284,18 @@ abstract class AppLocalizations {
   /// **'Sync from Nextcloud public share link'**
   String get nextcloudSubtitle;
 
+  /// No description provided for @smb.
+  ///
+  /// In en, this message translates to:
+  /// **'Network Share (SMB)'**
+  String get smb;
+
+  /// No description provided for @smbSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync from a local network SMB/CIFS share'**
+  String get smbSubtitle;
+
   /// No description provided for @loading.
   ///
   /// In en, this message translates to:
@@ -451,6 +463,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error loading folders: {error}'**
   String nextcloudFoldersLoadError(String error);
+
+  /// No description provided for @smbHost.
+  ///
+  /// In en, this message translates to:
+  /// **'Server host or IP'**
+  String get smbHost;
+
+  /// No description provided for @smbHostHint.
+  ///
+  /// In en, this message translates to:
+  /// **'192.168.1.10 or nas.local'**
+  String get smbHostHint;
+
+  /// No description provided for @smbShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share name'**
+  String get smbShare;
+
+  /// No description provided for @smbShareHint.
+  ///
+  /// In en, this message translates to:
+  /// **'photos'**
+  String get smbShareHint;
+
+  /// No description provided for @smbPath.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder (optional)'**
+  String get smbPath;
+
+  /// No description provided for @smbPathHint.
+  ///
+  /// In en, this message translates to:
+  /// **'albums/2024'**
+  String get smbPathHint;
+
+  /// No description provided for @smbDomain.
+  ///
+  /// In en, this message translates to:
+  /// **'Domain (optional)'**
+  String get smbDomain;
+
+  /// No description provided for @smbUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get smbUsername;
+
+  /// No description provided for @smbUsernameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty for guest access'**
+  String get smbUsernameHint;
+
+  /// No description provided for @smbPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get smbPassword;
+
+  /// No description provided for @syncAllSmbFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'All folders'**
+  String get syncAllSmbFolders;
+
+  /// No description provided for @syncAllSmbFoldersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync images from the share root and every subfolder'**
+  String get syncAllSmbFoldersSubtitle;
+
+  /// No description provided for @syncSelectedSmbFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected folders'**
+  String get syncSelectedSmbFolders;
+
+  /// No description provided for @syncSelectedSmbFoldersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the folders whose direct images should be used'**
+  String get syncSelectedSmbFoldersSubtitle;
+
+  /// No description provided for @loadSmbFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'Load folders'**
+  String get loadSmbFolders;
+
+  /// No description provided for @loadingSmbFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading folders...'**
+  String get loadingSmbFolders;
+
+  /// No description provided for @smbFolderSelectionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the share root and any subfolders you want to include.'**
+  String get smbFolderSelectionHint;
+
+  /// No description provided for @smbShareRoot.
+  ///
+  /// In en, this message translates to:
+  /// **'Share root'**
+  String get smbShareRoot;
+
+  /// No description provided for @smbShareRootSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Images directly in the base folder'**
+  String get smbShareRootSubtitle;
+
+  /// No description provided for @smbFoldersLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading folders: {error}'**
+  String smbFoldersLoadError(String error);
 
   /// No description provided for @autoSyncInterval.
   ///
