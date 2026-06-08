@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'photo_slide.dart';
+import '../../domain/models/photo_entry.dart';
 
 /// The available photo-to-photo transition animations.
 enum PhotoTransition { fade, slide, wipe, zoom, flip }
@@ -68,15 +70,14 @@ TransitionSpec resolveTransitionSpec(String transitionKey, Random random) {
 /// child normally, so settled slides beneath the incoming one stay fully
 /// visible.
 ///
-/// [previousChild] is the outgoing photo, used by the flip transition to turn
-/// the old photo out before turning the new one in. Other transitions ignore
-/// it (they animate the incoming photo over the still-visible old slide).
+/// The flip transition is rendered separately via [FlipTransition] (it needs
+/// the photo entries to turn the blur borders off while rotating), so it falls
+/// back to a fade here if it ever reaches this generic builder.
 Widget buildPhotoTransition(
   TransitionSpec spec,
   Animation<double> animation,
-  Widget child, {
-  Widget? previousChild,
-}) {
+  Widget child,
+) {
   switch (spec.type) {
     case PhotoTransition.fade:
       return FadeTransition(opacity: animation, child: child);
@@ -113,12 +114,8 @@ Widget buildPhotoTransition(
       );
 
     case PhotoTransition.flip:
-      return _FlipTransition(
-        animation: animation,
-        variant: spec.variant,
-        previousChild: previousChild,
-        child: child,
-      );
+      // Rendered via FlipTransition directly; fall back to fade if reached.
+      return FadeTransition(opacity: animation, child: child);
   }
 }
 
@@ -192,32 +189,37 @@ class _WipeClipper extends CustomClipper<Path> {
 }
 
 /// A perspective 3D flip like a turning card: in the first half the outgoing
-/// photo ([previousChild]) rotates out to edge-on, then in the second half the
-/// incoming photo rotates in from edge-on to flat. Rotates about the Y axis
-/// (variant 0) or X axis (variant 1).
+/// photo rotates out to edge-on, then in the second half the incoming photo
+/// rotates in from edge-on to flat. Rotates about the Y axis (variant 0) or X
+/// axis (variant 1).
 ///
-/// A black backing fills the screen so the static slide beneath is hidden while
-/// the card turns (revealing black at the edges, as a real flip would). If
-/// there is no outgoing photo (the very first slide), it just flips the
+/// While rotating, the faces are drawn plainly (no blur borders) on black, so
+/// the GPU only has to transform a cached image texture - the expensive
+/// BackdropFilter blur is what made this stutter. The blur is restored once the
+/// photo settles flat, where it appears on a stationary image and so causes no
+/// visible motion hitch. A black backing hides the static slide beneath while
+/// the card turns. With no outgoing photo (the first slide) it just flips the
 /// incoming photo in.
-class _FlipTransition extends StatelessWidget {
-  const _FlipTransition({
+class FlipTransition extends StatelessWidget {
+  const FlipTransition({
+    super.key,
     required this.animation,
     required this.variant,
-    required this.previousChild,
-    required this.child,
+    required this.newPhoto,
+    required this.previousPhoto,
+    required this.screenSize,
+    required this.blurBorders,
   });
 
   final Animation<double> animation;
   final int variant;
-  final Widget? previousChild;
-  final Widget child;
+  final PhotoEntry newPhoto;
+  final PhotoEntry? previousPhoto;
+  final Size screenSize;
+  final bool blurBorders;
 
-  /// Rotates [face] about the configured axis by [angle] radians with
-  /// perspective. The face is wrapped in a RepaintBoundary so its expensive
-  /// blurred border is rasterized once and only the cached texture is
-  /// transformed each frame.
-  Widget _rotatedFace(Widget face, double angle) {
+  /// Rotates an already-cached [face] about the configured axis by [angle].
+  Widget _rotated(Widget face, double angle) {
     final transform = Matrix4.identity()..setEntry(3, 2, 0.0012); // perspective
     if (variant == 1) {
       transform.rotateX(angle);
@@ -227,40 +229,68 @@ class _FlipTransition extends StatelessWidget {
     return Transform(
       alignment: Alignment.center,
       transform: transform,
-      child: RepaintBoundary(child: face),
+      child: face,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
-    final hasPrevious = previousChild != null;
+    final hasPrevious = previousPhoto != null;
+
+    // Built once (stable instances) so the RepaintBoundary rasters are reused
+    // across animation frames rather than recomputed.
+    final newPlain = RepaintBoundary(
+      child: PhotoSlide(
+        photo: newPhoto,
+        screenSize: screenSize,
+        blurBorders: false,
+      ),
+    );
+    final prevPlain = hasPrevious
+        ? RepaintBoundary(
+            child: PhotoSlide(
+              photo: previousPhoto!,
+              screenSize: screenSize,
+              blurBorders: false,
+            ),
+          )
+        : null;
 
     return AnimatedBuilder(
       animation: curved,
       builder: (context, _) {
         final t = curved.value;
 
-        // Outgoing: flat (0) -> edge-on (+90deg) over the first half, then
-        // stays edge-on (hidden) for the second half.
+        // Settled: show the new photo flat with blur borders restored. The
+        // image is no longer moving, so rasterizing the blur here is invisible.
+        if (t >= 1.0) {
+          return ColoredBox(
+            color: Colors.black,
+            child: RepaintBoundary(
+              child: PhotoSlide(
+                photo: newPhoto,
+                screenSize: screenSize,
+                blurBorders: blurBorders,
+              ),
+            ),
+          );
+        }
+
+        // Outgoing: flat (0) -> edge-on (+90deg) over the first half.
         final outAngle = (t.clamp(0.0, 0.5) / 0.5) * (pi / 2);
         // Incoming: edge-on (-90deg) until the midpoint, then -90 -> 0 (flat).
-        // With no outgoing photo (first slide) it flips in across the whole run.
         final inProgress = hasPrevious ? (t - 0.5).clamp(0.0, 0.5) / 0.5 : t;
         final inAngle = (inProgress - 1) * (pi / 2);
 
         return Container(
           color: Colors.black,
           alignment: Alignment.center,
-          // Both faces are painted for the whole transition (each cached via a
-          // RepaintBoundary), so the incoming photo's blur is rasterized before
-          // the midpoint swap instead of hitching right after it. The face that
-          // is past edge-on has zero width, so it costs only a transformed quad.
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (hasPrevious) _rotatedFace(previousChild!, outAngle),
-              _rotatedFace(child, inAngle),
+              if (prevPlain != null) _rotated(prevPlain, outAngle),
+              _rotated(newPlain, inAngle),
             ],
           ),
         );

@@ -733,30 +733,31 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
         children: [
           // 1. Content Layer (Custom Stack)
           ..._slides.map((slide) {
+            // The flip is rendered by its own widget: it builds its faces so it
+            // can drop the blur borders while rotating (cheaper) and restore
+            // them once the photo settles.
+            if (slide.transition.type == PhotoTransition.flip) {
+              return FlipTransition(
+                key: ValueKey('flip_${slide.photo.file.path}'),
+                animation: slide.controller,
+                variant: slide.transition.variant,
+                newPhoto: slide.photo,
+                previousPhoto: slide.previousPhoto,
+                screenSize: _screenSize!,
+                blurBorders: config.blurBorders,
+              );
+            }
+
             final child = PhotoSlide(
               key: ValueKey(slide.photo.file.path),
               photo: slide.photo,
               screenSize: _screenSize!,
               blurBorders: config.blurBorders,
             );
-
-            // The flip transition turns the outgoing photo out, so build it too.
-            Widget? previousChild;
-            if (slide.transition.type == PhotoTransition.flip &&
-                slide.previousPhoto != null) {
-              previousChild = PhotoSlide(
-                key: ValueKey('prev_${slide.previousPhoto!.file.path}'),
-                photo: slide.previousPhoto!,
-                screenSize: _screenSize!,
-                blurBorders: config.blurBorders,
-              );
-            }
-
             return buildPhotoTransition(
               slide.transition,
               slide.controller,
               child,
-              previousChild: previousChild,
             );
           }).toList(),
 
