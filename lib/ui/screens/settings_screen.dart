@@ -13,6 +13,8 @@ import '../../infrastructure/repositories/hybrid_photo_repository.dart';
 import '../../infrastructure/services/photo_service.dart';
 import '../../infrastructure/services/nextcloud_source_config.dart';
 import '../../infrastructure/services/nextcloud_sync_service.dart';
+import '../../infrastructure/services/smb_source_config.dart';
+import '../../infrastructure/services/smb_sync_service.dart';
 import '../../infrastructure/services/autostart_service.dart';
 import '../../infrastructure/services/native_screen_control_service.dart';
 import '../../infrastructure/services/keep_alive_service.dart';
@@ -85,7 +87,20 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   List<NextcloudFolder> _availableNextcloudFolders = [];
   bool _isLoadingNextcloudFolders = false;
   String? _nextcloudFolderLoadError;
-  
+
+  // SMB share settings
+  late TextEditingController _smbHostController;
+  late TextEditingController _smbShareController;
+  late TextEditingController _smbPathController;
+  late TextEditingController _smbDomainController;
+  late TextEditingController _smbUsernameController;
+  late TextEditingController _smbPasswordController;
+  late SmbFolderSyncMode _smbFolderSyncMode;
+  late Set<String> _selectedSmbFolders;
+  List<SmbFolder> _availableSmbFolders = [];
+  bool _isLoadingSmbFolders = false;
+  String? _smbFolderLoadError;
+
   // Local folder path
   late String _localFolderPath;
   String _defaultFolderPath = '';
@@ -99,7 +114,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   // Track original values to detect changes
   late String _originalSyncType;
   late NextcloudSourceConfig _originalNextcloudSourceConfig;
-  
+  late SmbSourceConfig _originalSmbSourceConfig;
+
   @override
   void initState() {
     super.initState();
@@ -168,9 +184,22 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _nextcloudFolderSyncMode = nextcloudConfig.folderSyncMode;
     _selectedNextcloudFolders = {...nextcloudConfig.normalizedSelectedFolders};
     
+    final smbConfig = SmbSourceConfig.fromMap(
+      config.getSourceConfig('smb'),
+    );
+    _smbHostController = TextEditingController(text: smbConfig.host);
+    _smbShareController = TextEditingController(text: smbConfig.share);
+    _smbPathController = TextEditingController(text: smbConfig.path);
+    _smbDomainController = TextEditingController(text: smbConfig.domain);
+    _smbUsernameController = TextEditingController(text: smbConfig.username);
+    _smbPasswordController = TextEditingController(text: smbConfig.password);
+    _smbFolderSyncMode = smbConfig.folderSyncMode;
+    _selectedSmbFolders = {...smbConfig.normalizedSelectedFolders};
+
     // Store original values for comparison on save
     _originalSyncType = _syncType;
     _originalNextcloudSourceConfig = nextcloudConfig;
+    _originalSmbSourceConfig = smbConfig;
     
     // Load saved album selection for device_photos mode
     final devicePhotosConfig = config.getSourceConfig('device_photos');
@@ -191,7 +220,15 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         _loadAvailableNextcloudFolders();
       });
     }
-    
+
+    if (_syncType == 'smb' &&
+        smbConfig.isConfigured &&
+        _smbFolderSyncMode == SmbFolderSyncMode.selectedFolders) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadAvailableSmbFolders();
+      });
+    }
+
     // Load default folder path async
     _loadDefaultFolderPath();
     _loadAppVersion();
@@ -237,6 +274,12 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _nextcloudUrlController.dispose();
+    _smbHostController.dispose();
+    _smbShareController.dispose();
+    _smbPathController.dispose();
+    _smbDomainController.dispose();
+    _smbUsernameController.dispose();
+    _smbPasswordController.dispose();
     super.dispose();
   }
   
@@ -258,14 +301,20 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
     final nextcloudConfigChanged =
       !_nextcloudConfigsEqual(newNextcloudSourceConfig, _originalNextcloudSourceConfig);
+    final newSmbSourceConfig = _buildSmbSourceConfig();
+    final smbConfigChanged =
+      !_smbConfigsEqual(newSmbSourceConfig, _originalSmbSourceConfig);
     final syncConfigChanged =
       _syncType != _originalSyncType ||
-      (_syncType == 'nextcloud_link' && nextcloudConfigChanged);
-    final newSyncSourceConfigured = syncConfigChanged && 
-        _syncType == 'nextcloud_link' && 
-        newNextcloudUrl.isNotEmpty;
+      (_syncType == 'nextcloud_link' && nextcloudConfigChanged) ||
+      (_syncType == 'smb' && smbConfigChanged);
+    final newSyncSourceConfigured = syncConfigChanged &&
+        ((_syncType == 'nextcloud_link' && newNextcloudUrl.isNotEmpty) ||
+            (_syncType == 'smb' && newSmbSourceConfig.isConfigured));
     
     config.slideDurationSeconds = _slideDurationMinutes * 60;
+    // Slide duration is entered directly in seconds; clamp to a sane range
+    // (1 second .. 24 hours) and fall back to the current value if invalid.
     config.transitionDurationMs = (_transitionDurationSeconds * 1000).round();
     config.blurBorders = _blurBorders;
     // app_folder and local_folder both use empty activeSourceType (no sync)
@@ -315,7 +364,10 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     if (_syncType == 'nextcloud_link') {
       config.setSourceConfig('nextcloud_link', newNextcloudSourceConfig.toMap());
     }
-    
+    if (_syncType == 'smb') {
+      config.setSourceConfig('smb', newSmbSourceConfig.toMap());
+    }
+
     await config.save();
     
     // If a new sync source was configured, trigger an immediate sync
@@ -492,9 +544,15 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             const SizedBox(height: 16),
             _buildNextcloudSettings(),
           ],
-          
-          // Sync options (only visible if sync enabled - i.e. Nextcloud)
-          if (_syncType == 'nextcloud_link') ...[
+
+          // SMB share settings (only visible if SMB selected)
+          if (_syncType == 'smb') ...[
+            const SizedBox(height: 16),
+            _buildSmbSettings(),
+          ],
+
+          // Sync options (only visible for remote sync sources)
+          if (_isRemoteSyncSource) ...[
             const SizedBox(height: 16),
             
             // Sync Interval Slider
@@ -670,6 +728,11 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
   
+  /// True when the active source downloads from a remote server (Nextcloud or
+  /// SMB) and therefore exposes the sync interval / orphan / sync-now options.
+  bool get _isRemoteSyncSource =>
+      _syncType == 'nextcloud_link' || _syncType == 'smb';
+
   Widget _buildSyncTypeSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,6 +782,15 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           title: Text(AppLocalizations.of(context)!.nextcloud),
           subtitle: Text(AppLocalizations.of(context)!.nextcloudSubtitle),
           value: 'nextcloud_link',
+          groupValue: _syncType,
+          onChanged: (value) {
+            setState(() => _syncType = value!);
+          },
+        ),
+        RadioListTile<String>(
+          title: Text(AppLocalizations.of(context)!.smb),
+          subtitle: Text(AppLocalizations.of(context)!.smbSubtitle),
+          value: 'smb',
           groupValue: _syncType,
           onChanged: (value) {
             setState(() => _syncType = value!);
@@ -1258,7 +1330,355 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
     return true;
   }
-  
+
+  SmbSourceConfig _buildSmbSourceConfig() {
+    return SmbSourceConfig(
+      host: _smbHostController.text.trim(),
+      share: _smbShareController.text.trim(),
+      path: SmbSourceConfig.normalizeFolderPath(_smbPathController.text),
+      domain: _smbDomainController.text.trim(),
+      username: _smbUsernameController.text.trim(),
+      password: _smbPasswordController.text,
+      folderSyncMode: _smbFolderSyncMode,
+      selectedFolders: _selectedSmbFolders.toList()..sort(),
+    );
+  }
+
+  bool _smbConfigsEqual(SmbSourceConfig left, SmbSourceConfig right) {
+    final leftFolders = left.normalizedSelectedFolders.toList()..sort();
+    final rightFolders = right.normalizedSelectedFolders.toList()..sort();
+
+    if (left.host != right.host ||
+        left.share != right.share ||
+        left.path != right.path ||
+        left.domain != right.domain ||
+        left.username != right.username ||
+        left.password != right.password ||
+        left.folderSyncMode != right.folderSyncMode) {
+      return false;
+    }
+
+    if (leftFolders.length != rightFolders.length) {
+      return false;
+    }
+
+    for (var index = 0; index < leftFolders.length; index++) {
+      if (leftFolders[index] != rightFolders[index]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  Widget _buildSmbSettings() {
+    final localizations = AppLocalizations.of(context)!;
+
+    void onConnectionFieldChanged() {
+      setState(() {
+        _connectionTestResult = null;
+        _connectionTestSuccess = null;
+        _availableSmbFolders = [];
+        _smbFolderLoadError = null;
+      });
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _smbHostController,
+            decoration: InputDecoration(
+              labelText: localizations.smbHost,
+              hintText: localizations.smbHostHint,
+              prefixIcon: const Icon(Icons.dns),
+              border: const OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.url,
+            onChanged: (_) => onConnectionFieldChanged(),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _smbShareController,
+            decoration: InputDecoration(
+              labelText: localizations.smbShare,
+              hintText: localizations.smbShareHint,
+              prefixIcon: const Icon(Icons.folder_shared),
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) => onConnectionFieldChanged(),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _smbPathController,
+            decoration: InputDecoration(
+              labelText: localizations.smbPath,
+              hintText: localizations.smbPathHint,
+              prefixIcon: const Icon(Icons.subdirectory_arrow_right),
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) => onConnectionFieldChanged(),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _smbUsernameController,
+            decoration: InputDecoration(
+              labelText: localizations.smbUsername,
+              hintText: localizations.smbUsernameHint,
+              prefixIcon: const Icon(Icons.person),
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) => onConnectionFieldChanged(),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _smbPasswordController,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: localizations.smbPassword,
+              prefixIcon: const Icon(Icons.lock),
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) => onConnectionFieldChanged(),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _smbDomainController,
+            decoration: InputDecoration(
+              labelText: localizations.smbDomain,
+              prefixIcon: const Icon(Icons.domain),
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) => onConnectionFieldChanged(),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _isTestingConnection ? null : _testSmbConnection,
+            icon: _isTestingConnection
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.wifi_find, size: 18),
+            label: Text(_isTestingConnection
+                ? localizations.testing
+                : localizations.testConnection),
+          ),
+          if (_connectionTestResult != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  _connectionTestSuccess! ? Icons.check_circle : Icons.error,
+                  size: 16,
+                  color: _connectionTestSuccess! ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _connectionTestResult!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _connectionTestSuccess! ? Colors.green : Colors.red,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+          RadioListTile<SmbFolderSyncMode>(
+            title: Text(localizations.syncAllSmbFolders),
+            subtitle: Text(localizations.syncAllSmbFoldersSubtitle),
+            value: SmbFolderSyncMode.all,
+            groupValue: _smbFolderSyncMode,
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+              setState(() {
+                _smbFolderSyncMode = value;
+              });
+            },
+          ),
+          RadioListTile<SmbFolderSyncMode>(
+            title: Text(localizations.syncSelectedSmbFolders),
+            subtitle: Text(localizations.syncSelectedSmbFoldersSubtitle),
+            value: SmbFolderSyncMode.selectedFolders,
+            groupValue: _smbFolderSyncMode,
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+              setState(() {
+                _smbFolderSyncMode = value;
+                if (_selectedSmbFolders.isEmpty) {
+                  _selectedSmbFolders = {''};
+                }
+              });
+            },
+          ),
+          if (_smbFolderSyncMode == SmbFolderSyncMode.selectedFolders) ...[
+            const SizedBox(height: 8),
+            _buildSmbFolderSelection(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmbFolderSelection() {
+    final localizations = AppLocalizations.of(context)!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _isLoadingSmbFolders ? null : _loadAvailableSmbFolders,
+          icon: _isLoadingSmbFolders
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.folder_open, size: 18),
+          label: Text(
+            _isLoadingSmbFolders
+                ? localizations.loadingSmbFolders
+                : localizations.loadSmbFolders,
+          ),
+        ),
+        if (_smbFolderLoadError != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            localizations.smbFoldersLoadError(_smbFolderLoadError!),
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ],
+        if (_availableSmbFolders.isEmpty && !_isLoadingSmbFolders) ...[
+          const SizedBox(height: 8),
+          Text(
+            localizations.smbFolderSelectionHint,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+        if (_availableSmbFolders.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            localizations.smbFolderSelectionHint,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).dividerColor),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: _availableSmbFolders.map((folder) {
+                final isSelected = _selectedSmbFolders.contains(folder.path);
+                final displayName = folder.path.isEmpty
+                    ? localizations.smbShareRoot
+                    : folder.name;
+
+                return CheckboxListTile(
+                  value: isSelected,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  contentPadding: EdgeInsets.only(
+                    left: 12 + (folder.depth * 20),
+                    right: 12,
+                  ),
+                  title: Text(displayName),
+                  subtitle: folder.path.isEmpty
+                      ? Text(localizations.smbShareRootSubtitle)
+                      : null,
+                  onChanged: (value) {
+                    setState(() {
+                      if (value ?? false) {
+                        _selectedSmbFolders.add(folder.path);
+                      } else {
+                        _selectedSmbFolders.remove(folder.path);
+                      }
+                    });
+                  },
+                );
+              }).toList(growable: false),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _testSmbConnection() async {
+    setState(() {
+      _isTestingConnection = true;
+      _connectionTestResult = null;
+      _connectionTestSuccess = null;
+    });
+
+    final error = await SmbSyncService.testConnection(_buildSmbSourceConfig());
+
+    if (mounted) {
+      setState(() {
+        _isTestingConnection = false;
+        _connectionTestSuccess = error == null;
+        _connectionTestResult =
+            error ?? AppLocalizations.of(context)!.connectionSuccessful;
+      });
+    }
+  }
+
+  Future<void> _loadAvailableSmbFolders() async {
+    final config = _buildSmbSourceConfig();
+    if (!config.isConfigured) {
+      setState(() {
+        _smbFolderLoadError = 'Host or share is empty';
+        _availableSmbFolders = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoadingSmbFolders = true;
+      _smbFolderLoadError = null;
+    });
+
+    try {
+      final folders = await SmbSyncService.listAvailableFolders(config);
+      final availablePaths = folders.map((folder) => folder.path).toSet();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _availableSmbFolders = folders;
+        _selectedSmbFolders =
+            _selectedSmbFolders.where(availablePaths.contains).toSet();
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _smbFolderLoadError = e.toString();
+        _availableSmbFolders = [];
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSmbFolders = false;
+        });
+      }
+    }
+  }
+
   Widget _buildSyncIntervalSlider() {
     // Values: 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60
     final displayValue = _syncIntervalMinutes == 0 
