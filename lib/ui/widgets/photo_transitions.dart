@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'photo_slide.dart';
 import '../../domain/models/photo_entry.dart';
@@ -193,13 +194,14 @@ class _WipeClipper extends CustomClipper<Path> {
 /// rotates in from edge-on to flat. Rotates about the Y axis (variant 0) or X
 /// axis (variant 1).
 ///
-/// While rotating, the faces are drawn plainly (no blur borders) on black, so
-/// the GPU only has to transform a cached image texture - the expensive
-/// BackdropFilter blur is what made this stutter. The blur is restored once the
-/// photo settles flat, where it appears on a stationary image and so causes no
-/// visible motion hitch. A black backing hides the static slide beneath while
-/// the card turns. With no outgoing photo (the first slide) it just flips the
-/// incoming photo in.
+/// The photo (BoxFit.contain) is always fully opaque; only the blurred border
+/// fill behind it fades - in as the incoming photo turns toward flat, out as
+/// the outgoing photo turns away - so it never pops. The blur uses ImageFiltered
+/// (a forward blur of a static image) wrapped in a RepaintBoundary so Flutter's
+/// raster cache keeps it as a texture; the rotation and the fade then only
+/// transform/alpha that cached texture, avoiding the per-frame BackdropFilter
+/// cost that made earlier versions stutter. A black backing hides the static
+/// slide beneath while the card turns.
 class FlipTransition extends StatelessWidget {
   const FlipTransition({
     super.key,
@@ -218,7 +220,53 @@ class FlipTransition extends StatelessWidget {
   final Size screenSize;
   final bool blurBorders;
 
-  /// Rotates an already-cached [face] about the configured axis by [angle].
+  /// The photo itself, fit to the screen (no border treatment).
+  Widget _containImage(PhotoEntry photo) {
+    return Center(
+      child: Image(
+        image: PhotoSlide.createOptimizedProvider(photo.file, screenSize),
+        fit: BoxFit.contain,
+        gaplessPlayback: true,
+      ),
+    );
+  }
+
+  /// The blurred, darkened full-bleed background shown in the letterbox borders.
+  /// Uses ImageFiltered (a forward blur of a static image) in a RepaintBoundary
+  /// so the blur is rasterized once and the raster cache reuses it as a texture.
+  Widget _blurredBorder(PhotoEntry photo) {
+    final image = PhotoSlide.createOptimizedProvider(photo.file, screenSize);
+    return RepaintBoundary(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Image(image: image, fit: BoxFit.cover, gaplessPlayback: true),
+          ),
+          Container(color: Colors.black.withOpacity(0.4)),
+        ],
+      ),
+    );
+  }
+
+  /// One face: black backing, the blurred border at [blurFade] opacity, then the
+  /// photo on top. [blur]/[contain] are stable instances so their rasters cache.
+  Widget _face(Widget contain, Widget blur, double blurFade) {
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (blurFade > 0)
+            Opacity(opacity: blurFade.clamp(0.0, 1.0), child: blur),
+          contain,
+        ],
+      ),
+    );
+  }
+
+  /// Rotates [face] about the configured axis by [angle] with perspective.
   Widget _rotated(Widget face, double angle) {
     final transform = Matrix4.identity()..setEntry(3, 2, 0.0012); // perspective
     if (variant == 1) {
@@ -226,11 +274,7 @@ class FlipTransition extends StatelessWidget {
     } else {
       transform.rotateY(angle);
     }
-    return Transform(
-      alignment: Alignment.center,
-      transform: transform,
-      child: face,
-    );
+    return Transform(alignment: Alignment.center, transform: transform, child: face);
   }
 
   @override
@@ -238,50 +282,30 @@ class FlipTransition extends StatelessWidget {
     final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
     final hasPrevious = previousPhoto != null;
 
-    // Built once (stable instances) so the RepaintBoundary rasters are reused
-    // across animation frames rather than recomputed.
-    final newPlain = RepaintBoundary(
-      child: PhotoSlide(
-        photo: newPhoto,
-        screenSize: screenSize,
-        blurBorders: false,
-      ),
-    );
-    final prevPlain = hasPrevious
-        ? RepaintBoundary(
-            child: PhotoSlide(
-              photo: previousPhoto!,
-              screenSize: screenSize,
-              blurBorders: false,
-            ),
-          )
-        : null;
+    // Stable, raster-cacheable pieces (built once, not per frame).
+    final newContain = _containImage(newPhoto);
+    final newBlur = blurBorders ? _blurredBorder(newPhoto) : const SizedBox.shrink();
+    final prevContain = hasPrevious ? _containImage(previousPhoto!) : null;
+    final prevBlur = (hasPrevious && blurBorders)
+        ? _blurredBorder(previousPhoto!)
+        : const SizedBox.shrink();
 
     return AnimatedBuilder(
       animation: curved,
       builder: (context, _) {
         final t = curved.value;
 
-        // Settled: show the new photo flat with blur borders restored. The
-        // image is no longer moving, so rasterizing the blur here is invisible.
+        // Settled: photo flat with the blur fully faded in.
         if (t >= 1.0) {
-          return ColoredBox(
-            color: Colors.black,
-            child: RepaintBoundary(
-              child: PhotoSlide(
-                photo: newPhoto,
-                screenSize: screenSize,
-                blurBorders: blurBorders,
-              ),
-            ),
-          );
+          return _face(newContain, newBlur, blurBorders ? 1.0 : 0.0);
         }
 
-        // Outgoing: flat (0) -> edge-on (+90deg) over the first half.
-        final outAngle = (t.clamp(0.0, 0.5) / 0.5) * (pi / 2);
-        // Incoming: edge-on (-90deg) until the midpoint, then -90 -> 0 (flat).
-        final inProgress = hasPrevious ? (t - 0.5).clamp(0.0, 0.5) / 0.5 : t;
-        final inAngle = (inProgress - 1) * (pi / 2);
+        // Outgoing: flat (0) -> edge-on (+90deg); its blur fades out as it turns.
+        final out = t.clamp(0.0, 0.5) / 0.5;
+        final outAngle = out * (pi / 2);
+        // Incoming: edge-on (-90deg) -> flat (0); its blur fades in as it turns.
+        final inP = hasPrevious ? (t - 0.5).clamp(0.0, 0.5) / 0.5 : t;
+        final inAngle = (inP - 1) * (pi / 2);
 
         return Container(
           color: Colors.black,
@@ -289,8 +313,12 @@ class FlipTransition extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (prevPlain != null) _rotated(prevPlain, outAngle),
-              _rotated(newPlain, inAngle),
+              if (prevContain != null)
+                _rotated(
+                  _face(prevContain, prevBlur, blurBorders ? (1 - out) : 0.0),
+                  outAngle,
+                ),
+              _rotated(_face(newContain, newBlur, blurBorders ? inP : 0.0), inAngle),
             ],
           ),
         );
