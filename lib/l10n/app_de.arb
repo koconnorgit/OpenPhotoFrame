@@ -5,6 +5,7 @@
   
   "sectionSlideshow": "Diashow",
   "slideDuration": "Anzeigedauer",
+  "slideDurationHint": "Sekunden pro Foto",
   "transitionDuration": "Überblendzeit",
   "blurBorders": "Rand unscharf",
   "blurBordersSubtitle": "Bild mit Unschärfe bis zum Bildschirmrand zeichnen",

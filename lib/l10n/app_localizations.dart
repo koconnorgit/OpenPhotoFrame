@@ -116,6 +116,12 @@ abstract class AppLocalizations {
   /// **'Slide Duration'**
   String get slideDuration;
 
+  /// No description provided for @slideDurationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Seconds each photo is shown'**
+  String get slideDurationHint;
+
   /// No description provided for @transitionDuration.
   ///
   /// In en, this message translates to:

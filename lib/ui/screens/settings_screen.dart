@@ -41,7 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     minute: 0,
   );
 
-  late int _slideDurationMinutes;
+  late TextEditingController _slideDurationController;
   late double _transitionDurationSeconds;
   late bool _blurBorders;
   late String _syncType;
@@ -131,7 +131,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     
     final config = context.read<ConfigProvider>();
-    _slideDurationMinutes = (config.slideDurationSeconds / 60).round().clamp(1, 15);
+    _slideDurationController =
+        TextEditingController(text: config.slideDurationSeconds.toString());
     _transitionDurationSeconds = (config.transitionDurationMs / 1000.0).clamp(0.5, 5.0);
     _blurBorders = config.blurBorders;
     // Default sync type: app_folder on Android, local_folder on Desktop
@@ -273,6 +274,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _slideDurationController.dispose();
     _nextcloudUrlController.dispose();
     _smbHostController.dispose();
     _smbShareController.dispose();
@@ -312,9 +314,14 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         ((_syncType == 'nextcloud_link' && newNextcloudUrl.isNotEmpty) ||
             (_syncType == 'smb' && newSmbSourceConfig.isConfigured));
     
-    config.slideDurationSeconds = _slideDurationMinutes * 60;
     // Slide duration is entered directly in seconds; clamp to a sane range
     // (1 second .. 24 hours) and fall back to the current value if invalid.
+    final parsedSlideSeconds =
+        int.tryParse(_slideDurationController.text.trim()) ??
+            config.slideDurationSeconds;
+    final slideDurationSeconds = parsedSlideSeconds.clamp(1, 86400);
+    config.slideDurationSeconds = slideDurationSeconds;
+    _slideDurationController.text = slideDurationSeconds.toString();
     config.transitionDurationMs = (_transitionDurationSeconds * 1000).round();
     config.blurBorders = _blurBorders;
     // app_folder and local_folder both use empty activeSourceType (no sync)
@@ -402,19 +409,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           _buildSectionHeader(AppLocalizations.of(context)!.sectionSlideshow),
           const SizedBox(height: 8),
           
-          // Slide Duration
-          _buildSliderSetting(
-            icon: Icons.timer,
-            title: AppLocalizations.of(context)!.slideDuration,
-            value: _slideDurationMinutes.toDouble(),
-            min: 1,
-            max: 15,
-            divisions: 14,
-            unit: AppLocalizations.of(context)!.unitMinutes,
-            onChanged: (value) {
-              setState(() => _slideDurationMinutes = value.round());
-            },
-          ),
+          // Slide Duration (typed directly in seconds)
+          _buildSlideDurationInput(),
           
           const SizedBox(height: 16),
           
@@ -688,6 +684,45 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
   
+  /// Slide duration is entered directly as a number of seconds, so very short
+  /// durations (faster than the old 1-minute slider minimum) are possible.
+  Widget _buildSlideDurationInput() {
+    final localizations = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.timer, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(localizations.slideDuration)),
+            SizedBox(
+              width: 120,
+              child: TextField(
+                controller: _slideDurationController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                textAlign: TextAlign.end,
+                decoration: InputDecoration(
+                  isDense: true,
+                  suffixText: localizations.unitSeconds,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            localizations.slideDurationHint,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSliderSetting({
     required IconData icon,
     required String title,

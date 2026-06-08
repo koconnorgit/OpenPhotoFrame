@@ -5,6 +5,7 @@
   
   "sectionSlideshow": "Slideshow",
   "slideDuration": "Slide Duration",
+  "slideDurationHint": "Seconds each photo is shown",
   "transitionDuration": "Transition Duration",
   "blurBorders": "Blur Borders",
   "blurBordersSubtitle": "Extend image to screen size",

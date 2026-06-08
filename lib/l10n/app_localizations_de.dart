@@ -18,6 +18,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get slideDuration => 'Anzeigedauer';
 
   @override
+  String get slideDurationHint => 'Sekunden pro Foto';
+
+  @override
   String get transitionDuration => 'Überblendzeit';
 
   @override
