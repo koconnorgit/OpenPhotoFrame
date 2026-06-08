@@ -539,6 +539,8 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
       photo: photo,
       controller: controller,
       transition: spec,
+      // The currently displayed photo becomes the outgoing one (for flip).
+      previousPhoto: _currentPhoto,
     );
 
     // Log EXIF metadata when displaying a photo
@@ -737,11 +739,24 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
               screenSize: _screenSize!,
               blurBorders: config.blurBorders,
             );
-            
+
+            // The flip transition turns the outgoing photo out, so build it too.
+            Widget? previousChild;
+            if (slide.transition.type == PhotoTransition.flip &&
+                slide.previousPhoto != null) {
+              previousChild = PhotoSlide(
+                key: ValueKey('prev_${slide.previousPhoto!.file.path}'),
+                photo: slide.previousPhoto!,
+                screenSize: _screenSize!,
+                blurBorders: config.blurBorders,
+              );
+            }
+
             return buildPhotoTransition(
               slide.transition,
               slide.controller,
               child,
+              previousChild: previousChild,
             );
           }).toList(),
 
@@ -846,10 +861,12 @@ class _SlideItem {
   final PhotoEntry photo;
   final AnimationController controller;
   final TransitionSpec transition; // how this slide animates in
+  final PhotoEntry? previousPhoto; // outgoing photo (used by the flip transition)
 
   _SlideItem({
     required this.photo,
     required this.controller,
     required this.transition,
+    this.previousPhoto,
   });
 }

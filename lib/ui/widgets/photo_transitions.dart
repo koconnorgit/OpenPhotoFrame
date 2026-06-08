@@ -67,11 +67,16 @@ TransitionSpec resolveTransitionSpec(String transitionKey, Random random) {
 /// driven by [animation] (0 -> 1). At value 1 every transition renders the
 /// child normally, so settled slides beneath the incoming one stay fully
 /// visible.
+///
+/// [previousChild] is the outgoing photo, used by the flip transition to turn
+/// the old photo out before turning the new one in. Other transitions ignore
+/// it (they animate the incoming photo over the still-visible old slide).
 Widget buildPhotoTransition(
   TransitionSpec spec,
   Animation<double> animation,
-  Widget child,
-) {
+  Widget child, {
+  Widget? previousChild,
+}) {
   switch (spec.type) {
     case PhotoTransition.fade:
       return FadeTransition(opacity: animation, child: child);
@@ -108,7 +113,12 @@ Widget buildPhotoTransition(
       );
 
     case PhotoTransition.flip:
-      return _FlipTransition(animation: animation, variant: spec.variant, child: child);
+      return _FlipTransition(
+        animation: animation,
+        variant: spec.variant,
+        previousChild: previousChild,
+        child: child,
+      );
   }
 }
 
@@ -181,43 +191,63 @@ class _WipeClipper extends CustomClipper<Path> {
       oldClipper.progress != progress || oldClipper.variant != variant;
 }
 
-/// A perspective 3D flip: the incoming photo rotates in from edge-on to flat
-/// about the Y axis (variant 0) or X axis (variant 1).
+/// A perspective 3D flip like a turning card: in the first half the outgoing
+/// photo ([previousChild]) rotates out to edge-on, then in the second half the
+/// incoming photo rotates in from edge-on to flat. Rotates about the Y axis
+/// (variant 0) or X axis (variant 1).
+///
+/// A black backing fills the screen so the static slide beneath is hidden while
+/// the card turns (revealing black at the edges, as a real flip would). If
+/// there is no outgoing photo (the very first slide), it just flips the
+/// incoming photo in.
 class _FlipTransition extends StatelessWidget {
   const _FlipTransition({
     required this.animation,
     required this.variant,
+    required this.previousChild,
     required this.child,
   });
 
   final Animation<double> animation;
   final int variant;
+  final Widget? previousChild;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+    final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
     return AnimatedBuilder(
       animation: curved,
-      child: child,
-      builder: (context, child) {
+      builder: (context, _) {
         final t = curved.value;
-        // 90deg (edge-on) -> 0deg (flat).
-        final angle = (1 - t) * (pi / 2);
-        final transform = Matrix4.identity()
-          ..setEntry(3, 2, 0.0012); // perspective
+        final Widget face;
+        final double angle; // radians; 0 = flat, +/-pi/2 = edge-on
+
+        if (previousChild != null && t < 0.5) {
+          // First half: outgoing photo turns from flat (0) to edge-on (+90deg).
+          face = previousChild!;
+          angle = (t / 0.5) * (pi / 2);
+        } else {
+          // Second half: incoming photo turns from edge-on (-90deg) to flat (0).
+          final v = previousChild == null ? t : (t - 0.5) / 0.5;
+          face = child;
+          angle = (v - 1) * (pi / 2);
+        }
+
+        final transform = Matrix4.identity()..setEntry(3, 2, 0.0012); // perspective
         if (variant == 1) {
           transform.rotateX(angle);
         } else {
           transform.rotateY(angle);
         }
-        return Opacity(
-          // Fade in quickly so the thin edge-on sliver isn't distracting.
-          opacity: (t * 2).clamp(0.0, 1.0),
+
+        return Container(
+          color: Colors.black,
+          alignment: Alignment.center,
           child: Transform(
             alignment: Alignment.center,
             transform: transform,
-            child: child,
+            child: face,
           ),
         );
       },
