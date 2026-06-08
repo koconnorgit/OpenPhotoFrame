@@ -24,6 +24,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get transitionDuration => 'Transition Duration';
 
   @override
+  String get transitionStyle => 'Transition Style';
+
+  @override
+  String get transitionFade => 'Fade';
+
+  @override
+  String get transitionSlide => 'Slide';
+
+  @override
+  String get transitionWipe => 'Wipe';
+
+  @override
+  String get transitionZoom => 'Zoom';
+
+  @override
+  String get transitionFlip => '3D Flip';
+
+  @override
+  String get transitionRandom => 'Random';
+
+  @override
   String get blurBorders => 'Blur Borders';
 
   @override

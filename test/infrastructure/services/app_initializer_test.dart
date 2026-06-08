@@ -46,6 +46,12 @@ class FakeConfigProvider extends ChangeNotifier implements ConfigProvider {
   set transitionDurationMs(int value) {}
 
   @override
+  String get transitionType => 'fade';
+
+  @override
+  set transitionType(String value) {}
+
+  @override
   bool get blurBorders => true;
 
   @override

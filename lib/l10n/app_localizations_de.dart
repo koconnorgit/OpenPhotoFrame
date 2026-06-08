@@ -24,6 +24,27 @@ class AppLocalizationsDe extends AppLocalizations {
   String get transitionDuration => 'Überblendzeit';
 
   @override
+  String get transitionStyle => 'Übergangsstil';
+
+  @override
+  String get transitionFade => 'Überblenden';
+
+  @override
+  String get transitionSlide => 'Schieben';
+
+  @override
+  String get transitionWipe => 'Wischen';
+
+  @override
+  String get transitionZoom => 'Zoom';
+
+  @override
+  String get transitionFlip => '3D-Flip';
+
+  @override
+  String get transitionRandom => 'Zufällig';
+
+  @override
   String get blurBorders => 'Rand unscharf';
 
   @override

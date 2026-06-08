@@ -17,6 +17,10 @@ abstract class ConfigProvider extends ChangeNotifier {
   int get transitionDurationMs; // Fade transition duration
   set transitionDurationMs(int value);
 
+  // Transition animation style: 'fade', 'slide', 'wipe', 'zoom', 'flip', 'random'
+  String get transitionType;
+  set transitionType(String value);
+
   bool get blurBorders; // Blur borders outside image
   set blurBorders(bool value);
   

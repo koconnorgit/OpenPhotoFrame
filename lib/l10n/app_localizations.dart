@@ -128,6 +128,48 @@ abstract class AppLocalizations {
   /// **'Transition Duration'**
   String get transitionDuration;
 
+  /// No description provided for @transitionStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transition Style'**
+  String get transitionStyle;
+
+  /// No description provided for @transitionFade.
+  ///
+  /// In en, this message translates to:
+  /// **'Fade'**
+  String get transitionFade;
+
+  /// No description provided for @transitionSlide.
+  ///
+  /// In en, this message translates to:
+  /// **'Slide'**
+  String get transitionSlide;
+
+  /// No description provided for @transitionWipe.
+  ///
+  /// In en, this message translates to:
+  /// **'Wipe'**
+  String get transitionWipe;
+
+  /// No description provided for @transitionZoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom'**
+  String get transitionZoom;
+
+  /// No description provided for @transitionFlip.
+  ///
+  /// In en, this message translates to:
+  /// **'3D Flip'**
+  String get transitionFlip;
+
+  /// No description provided for @transitionRandom.
+  ///
+  /// In en, this message translates to:
+  /// **'Random'**
+  String get transitionRandom;
+
   /// No description provided for @blurBorders.
   ///
   /// In en, this message translates to:

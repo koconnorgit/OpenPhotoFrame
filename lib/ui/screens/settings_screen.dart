@@ -45,6 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
   late TextEditingController _slideDurationController;
   late double _transitionDurationSeconds;
+  late String _transitionType;
   late bool _blurBorders;
   late String _syncType;
   late TextEditingController _nextcloudUrlController;
@@ -141,6 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _slideDurationController =
         TextEditingController(text: config.slideDurationSeconds.toString());
     _transitionDurationSeconds = (config.transitionDurationMs / 1000.0).clamp(0.5, 5.0);
+    _transitionType = config.transitionType;
     _blurBorders = config.blurBorders;
     // Default sync type: app_folder on Android, local_folder on Desktop
     final defaultSyncType = Platform.isAndroid ? 'app_folder' : 'local_folder';
@@ -342,6 +344,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     config.slideDurationSeconds = slideDurationSeconds;
     _slideDurationController.text = slideDurationSeconds.toString();
     config.transitionDurationMs = (_transitionDurationSeconds * 1000).round();
+    config.transitionType = _transitionType;
     config.blurBorders = _blurBorders;
     // app_folder and local_folder both use empty activeSourceType (no sync)
     final isLocalMode = _syncType == 'local_folder' || _syncType == 'app_folder';
@@ -448,6 +451,11 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               setState(() => _transitionDurationSeconds = value);
             },
           ),
+
+          const SizedBox(height: 8),
+
+          // Transition Style
+          _buildTransitionStyleSelector(),
 
           const SizedBox(height: 16),
 
@@ -1942,6 +1950,49 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
   
+  Widget _buildTransitionStyleSelector() {
+    final localizations = AppLocalizations.of(context)!;
+
+    // value -> (label, icon)
+    final options = <String, (String, IconData)>{
+      'fade': (localizations.transitionFade, Icons.gradient),
+      'slide': (localizations.transitionSlide, Icons.swipe),
+      'wipe': (localizations.transitionWipe, Icons.window),
+      'zoom': (localizations.transitionZoom, Icons.zoom_out_map),
+      'flip': (localizations.transitionFlip, Icons.flip),
+      'random': (localizations.transitionRandom, Icons.shuffle),
+    };
+    final current = options[_transitionType] ?? options['fade']!;
+
+    return ListTile(
+      leading: const Icon(Icons.animation),
+      title: Text(localizations.transitionStyle),
+      subtitle: Text(current.$1),
+      trailing: DropdownButton<String>(
+        value: options.containsKey(_transitionType) ? _transitionType : 'fade',
+        underline: const SizedBox(),
+        items: options.entries.map((entry) {
+          return DropdownMenuItem(
+            value: entry.key,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(entry.value.$2, size: 20),
+                const SizedBox(width: 8),
+                Text(entry.value.$1),
+              ],
+            ),
+          );
+        }).toList(),
+        onChanged: (value) {
+          if (value != null) {
+            setState(() => _transitionType = value);
+          }
+        },
+      ),
+    );
+  }
+
   Widget _buildScreenOrientationSelector() {
     String getOrientationLabel(String value) {
       switch (value) {

@@ -17,6 +17,7 @@ import '../../infrastructure/services/geocoding_service.dart';
 import '../../infrastructure/services/keep_alive_service.dart';
 import '../../domain/models/photo_entry.dart';
 import '../widgets/photo_slide.dart';
+import '../widgets/photo_transitions.dart';
 import '../widgets/clock_overlay.dart';
 import '../widgets/photo_info_overlay.dart';
 import '../../infrastructure/services/json_config_service.dart';
@@ -446,8 +447,13 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     final photo = forward ? service.nextPhoto() : service.previousPhoto();
     
     if (photo != null) {
-      // Slide direction: next = slide from right, previous = slide from left
-      _transitionTo(photo, slideDirection: forward ? SlideDirection.right : SlideDirection.left);
+      // Manual navigation always slides directionally: next = from right,
+      // previous = from left, regardless of the configured auto transition.
+      _transitionTo(
+        photo,
+        transition: TransitionSpec(PhotoTransition.slide, forward ? 0 : 1),
+        manual: true,
+      );
     }
     
     // Restart timer after interaction
@@ -472,7 +478,11 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     });
   }
 
-  Future<void> _transitionTo(PhotoEntry photo, {SlideDirection? slideDirection}) async {
+  Future<void> _transitionTo(
+    PhotoEntry photo, {
+    TransitionSpec? transition,
+    bool manual = false,
+  }) async {
     // Increment transaction ID - this invalidates any pending transitions
     final myTransitionId = ++_transitionId;
     
@@ -507,13 +517,19 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
       slide.controller.value = 1.0;
     }
 
-    // Create controller for new slide
-    // Slide animation is faster (300ms) than fade (configurable)
+    // Resolve which transition to play. Manual navigation passes an explicit
+    // directional slide; auto-advance resolves the configured style (and a
+    // random variant, or a fully random transition in "random" mode).
     final config = context.read<ConfigProvider>();
-    final duration = slideDirection != null
+    final spec = transition ??
+        resolveTransitionSpec(config.transitionType, _random);
+
+    // Manual navigation is snappy (300ms); auto-advance uses the configured
+    // transition duration.
+    final duration = manual
         ? const Duration(milliseconds: 300)
         : Duration(milliseconds: config.transitionDurationMs);
-    
+
     final controller = AnimationController(
       vsync: this,
       duration: duration,
@@ -522,7 +538,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     final newItem = _SlideItem(
       photo: photo,
       controller: controller,
-      slideDirection: slideDirection,
+      transition: spec,
     );
 
     // Log EXIF metadata when displaying a photo
@@ -722,30 +738,11 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
               blurBorders: config.blurBorders,
             );
             
-            // Use slide animation for manual navigation, fade for auto-advance
-            if (slide.slideDirection != null) {
-              // Slide from right (next) or left (previous)
-              final beginOffset = slide.slideDirection == SlideDirection.right
-                  ? const Offset(1.0, 0.0)  // Start from right
-                  : const Offset(-1.0, 0.0); // Start from left
-              
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: beginOffset,
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: slide.controller,
-                  curve: Curves.easeOutCubic,
-                )),
-                child: child,
-              );
-            } else {
-              // Fade transition for auto-advance
-              return FadeTransition(
-                opacity: slide.controller,
-                child: child,
-              );
-            }
+            return buildPhotoTransition(
+              slide.transition,
+              slide.controller,
+              child,
+            );
           }).toList(),
 
           // 2. Clock Overlay
@@ -848,10 +845,11 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
 class _SlideItem {
   final PhotoEntry photo;
   final AnimationController controller;
-  final SlideDirection? slideDirection; // null = fade, left/right = slide
+  final TransitionSpec transition; // how this slide animates in
 
-  _SlideItem({required this.photo, required this.controller, this.slideDirection});
+  _SlideItem({
+    required this.photo,
+    required this.controller,
+    required this.transition,
+  });
 }
-
-/// Direction for slide animation
-enum SlideDirection { left, right }
