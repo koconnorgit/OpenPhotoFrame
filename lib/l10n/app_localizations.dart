@@ -206,6 +206,12 @@ abstract class AppLocalizations {
   /// **'Fill & pan'**
   String get displayModePan;
 
+  /// No description provided for @displayModeRandom.
+  ///
+  /// In en, this message translates to:
+  /// **'Random per photo'**
+  String get displayModeRandom;
+
   /// No description provided for @unitMinutes.
   ///
   /// In en, this message translates to:

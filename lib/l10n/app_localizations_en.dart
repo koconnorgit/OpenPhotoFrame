@@ -63,6 +63,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get displayModePan => 'Fill & pan';
 
   @override
+  String get displayModeRandom => 'Random per photo';
+
+  @override
   String get unitMinutes => 'min';
 
   @override

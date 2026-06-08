@@ -64,6 +64,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get displayModePan => 'Füllen & schwenken';
 
   @override
+  String get displayModeRandom => 'Zufällig pro Foto';
+
+  @override
   String get unitMinutes => 'Min';
 
   @override

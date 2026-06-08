@@ -76,11 +76,12 @@ Widget buildPhotoFace(
   bool blurBorders,
   String displayMode,
 ) {
-  final content = photoImage(photo, screenSize, displayMode);
+  final mode = resolveDisplayMode(displayMode, photo);
+  final content = photoImage(photo, screenSize, mode);
   return RepaintBoundary(
     child: ColoredBox(
       color: Colors.black,
-      child: displayMode == kDisplayModeFit
+      child: mode == kDisplayModeFit
           ? Stack(
               fit: StackFit.expand,
               children: [
@@ -195,16 +196,18 @@ class PhotoTransitionView extends StatelessWidget {
       animation: curved,
       builder: (context, _) {
         final t = curved.value;
-        if (t >= 1.0) {
-          return ColoredBox(color: Colors.black, child: newFace);
-        }
+        // The structure stays identical from t=0 through the settled state
+        // (at t=1 the enter animation is the identity), and the two faces are
+        // keyed, so a panning photo's State (and its pan progress) survives the
+        // transition->settled boundary instead of jumping back to the origin.
         return ColoredBox(
           color: Colors.black,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (oldFace != null) _exit(oldFace, t),
-              _enter(newFace, t),
+              if (oldFace != null && t < 1.0)
+                KeyedSubtree(key: const ValueKey('old'), child: _exit(oldFace, t)),
+              KeyedSubtree(key: const ValueKey('new'), child: _enter(newFace, t)),
             ],
           ),
         );
@@ -287,7 +290,9 @@ class FlipTransition extends StatelessWidget {
   final String displayMode;
 
   /// Blurred borders only exist in `fit` mode; `fill`/`pan` fill the frame.
-  bool get _useBlur => displayMode == kDisplayModeFit && blurBorders;
+  /// Resolved per photo so `random` can differ between the two faces.
+  bool _useBlurFor(PhotoEntry photo) =>
+      blurBorders && resolveDisplayMode(displayMode, photo) == kDisplayModeFit;
 
   /// One face: black backing, the blurred border at [blurFade] opacity, then the
   /// photo on top. [blur]/[contain] are stable instances so their rasters cache.
@@ -322,12 +327,15 @@ class FlipTransition extends StatelessWidget {
     final hasPrevious = previousPhoto != null;
 
     // Stable, raster-cacheable pieces (built once, not per frame). The contain
-    // image follows the display mode (fit/fill/pan); blur exists in fit mode.
+    // image follows the display mode (fit/fill/pan); blur exists in fit mode,
+    // resolved per photo so `random` can differ between the two faces.
+    final useBlurNew = _useBlurFor(newPhoto);
+    final useBlurPrev = hasPrevious && _useBlurFor(previousPhoto!);
     final newContain = photoImage(newPhoto, screenSize, displayMode);
-    final newBlur = _useBlur ? blurredBorder(newPhoto, screenSize) : const SizedBox.shrink();
+    final newBlur = useBlurNew ? blurredBorder(newPhoto, screenSize) : const SizedBox.shrink();
     final prevContain =
         hasPrevious ? photoImage(previousPhoto!, screenSize, displayMode) : null;
-    final prevBlur = (hasPrevious && _useBlur)
+    final prevBlur = useBlurPrev
         ? blurredBorder(previousPhoto!, screenSize)
         : const SizedBox.shrink();
 
@@ -336,15 +344,12 @@ class FlipTransition extends StatelessWidget {
       builder: (context, _) {
         final t = curved.value;
 
-        // Settled: photo flat with the blur fully faded in.
-        if (t >= 1.0) {
-          return _face(newContain, newBlur, _useBlur ? 1.0 : 0.0);
-        }
-
         // Outgoing: flat (0) -> edge-on (+90deg); its blur fades out as it turns.
         final out = t.clamp(0.0, 0.5) / 0.5;
         final outAngle = out * (pi / 2);
         // Incoming: edge-on (-90deg) -> flat (0); its blur fades in as it turns.
+        // At t=1 this is flat with blur fully in (the settled look), so the
+        // structure never changes - a panning photo keeps its State.
         final inP = hasPrevious ? (t - 0.5).clamp(0.0, 0.5) / 0.5 : t;
         final inAngle = (inP - 1) * (pi / 2);
 
@@ -354,12 +359,18 @@ class FlipTransition extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (prevContain != null)
-                _rotated(
-                  _face(prevContain, prevBlur, _useBlur ? (1 - out) : 0.0),
-                  outAngle,
+              if (prevContain != null && t < 1.0)
+                KeyedSubtree(
+                  key: const ValueKey('old'),
+                  child: _rotated(
+                    _face(prevContain, prevBlur, useBlurPrev ? (1 - out) : 0.0),
+                    outAngle,
+                  ),
                 ),
-              _rotated(_face(newContain, newBlur, _useBlur ? inP : 0.0), inAngle),
+              KeyedSubtree(
+                key: const ValueKey('new'),
+                child: _rotated(_face(newContain, newBlur, useBlurNew ? inP : 0.0), inAngle),
+              ),
             ],
           ),
         );

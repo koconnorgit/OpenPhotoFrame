@@ -1967,6 +1967,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       'fit': (localizations.displayModeFit, Icons.fit_screen),
       'fill': (localizations.displayModeFill, Icons.crop),
       'pan': (localizations.displayModePan, Icons.pan_tool_alt),
+      'random': (localizations.displayModeRandom, Icons.shuffle),
     };
     final current = options[_photoDisplayMode] ?? options['fit']!;
 
