@@ -213,41 +213,55 @@ class _FlipTransition extends StatelessWidget {
   final Widget? previousChild;
   final Widget child;
 
+  /// Rotates [face] about the configured axis by [angle] radians with
+  /// perspective. The face is wrapped in a RepaintBoundary so its expensive
+  /// blurred border is rasterized once and only the cached texture is
+  /// transformed each frame.
+  Widget _rotatedFace(Widget face, double angle) {
+    final transform = Matrix4.identity()..setEntry(3, 2, 0.0012); // perspective
+    if (variant == 1) {
+      transform.rotateX(angle);
+    } else {
+      transform.rotateY(angle);
+    }
+    return Transform(
+      alignment: Alignment.center,
+      transform: transform,
+      child: RepaintBoundary(child: face),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+    final hasPrevious = previousChild != null;
+
     return AnimatedBuilder(
       animation: curved,
       builder: (context, _) {
         final t = curved.value;
-        final Widget face;
-        final double angle; // radians; 0 = flat, +/-pi/2 = edge-on
 
-        if (previousChild != null && t < 0.5) {
-          // First half: outgoing photo turns from flat (0) to edge-on (+90deg).
-          face = previousChild!;
-          angle = (t / 0.5) * (pi / 2);
-        } else {
-          // Second half: incoming photo turns from edge-on (-90deg) to flat (0).
-          final v = previousChild == null ? t : (t - 0.5) / 0.5;
-          face = child;
-          angle = (v - 1) * (pi / 2);
-        }
-
-        final transform = Matrix4.identity()..setEntry(3, 2, 0.0012); // perspective
-        if (variant == 1) {
-          transform.rotateX(angle);
-        } else {
-          transform.rotateY(angle);
-        }
+        // Outgoing: flat (0) -> edge-on (+90deg) over the first half, then
+        // stays edge-on (hidden) for the second half.
+        final outAngle = (t.clamp(0.0, 0.5) / 0.5) * (pi / 2);
+        // Incoming: edge-on (-90deg) until the midpoint, then -90 -> 0 (flat).
+        // With no outgoing photo (first slide) it flips in across the whole run.
+        final inProgress = hasPrevious ? (t - 0.5).clamp(0.0, 0.5) / 0.5 : t;
+        final inAngle = (inProgress - 1) * (pi / 2);
 
         return Container(
           color: Colors.black,
           alignment: Alignment.center,
-          child: Transform(
-            alignment: Alignment.center,
-            transform: transform,
-            child: face,
+          // Both faces are painted for the whole transition (each cached via a
+          // RepaintBoundary), so the incoming photo's blur is rasterized before
+          // the midpoint swap instead of hitching right after it. The face that
+          // is past edge-on has zero width, so it costs only a transformed quad.
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasPrevious) _rotatedFace(previousChild!, outAngle),
+              _rotatedFace(child, inAngle),
+            ],
           ),
         );
       },
