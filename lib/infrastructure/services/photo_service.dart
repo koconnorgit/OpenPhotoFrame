@@ -110,9 +110,16 @@ class PhotoService {
         await Future.delayed(Duration(minutes: intervalMinutes));
         return true;
       }
-      
-      await _executeSync();
-      
+
+      // A failed scheduled sync (e.g. server briefly unreachable) must not
+      // kill the loop - swallow the error here and retry next interval.
+      // Manual syncs via triggerSync() still surface errors to the UI.
+      try {
+        await _executeSync();
+      } catch (e) {
+        _log.warning("Scheduled sync failed; retrying next interval", e);
+      }
+
       // Wait for configured interval before next sync
       await Future.delayed(Duration(minutes: intervalMinutes));
       return true;
