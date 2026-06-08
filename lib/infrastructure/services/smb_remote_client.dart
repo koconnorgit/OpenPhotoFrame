@@ -104,12 +104,27 @@ class SmbConnectRemoteClient implements SmbRemoteClient {
   Future<void> downloadFile(String remotePath, String localPath) async {
     final connect = await _ensureConnected();
     final file = await connect.file(_toSmbPath(remotePath));
-    final stream = await connect.openRead(file);
 
+    // smb_connect's openRead() streams in ~4 KB chunks with one SMB round-trip
+    // per chunk, which is painfully slow over a network (a 3 MB photo needs
+    // ~700 round-trips). Reading through the random-access file uses 64 KB SMB
+    // reads internally, cutting round-trips ~16x.
+    final raf = await connect.open(file, mode: FileMode.read);
     final sink = File(localPath).openWrite();
     try {
-      await sink.addStream(stream);
+      const chunkSize = 1024 * 1024; // 1 MiB per read() call
+      final length = file.size;
+      var position = 0;
+      while (position < length) {
+        final remaining = length - position;
+        final toRead = remaining < chunkSize ? remaining : chunkSize;
+        final chunk = await raf.read(toRead);
+        if (chunk.isEmpty) break; // unexpected EOF
+        sink.add(chunk);
+        position += chunk.length;
+      }
     } finally {
+      await raf.close();
       await sink.close();
     }
   }
