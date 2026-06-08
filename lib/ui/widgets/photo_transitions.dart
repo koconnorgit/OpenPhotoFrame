@@ -66,83 +66,146 @@ TransitionSpec resolveTransitionSpec(String transitionKey, Random random) {
   return TransitionSpec(type, random.nextInt(transitionVariantCount(type)));
 }
 
-/// Wraps [child] (the incoming photo) in the animation described by [spec],
-/// driven by [animation] (0 -> 1). At value 1 every transition renders the
-/// child normally, so settled slides beneath the incoming one stay fully
-/// visible.
-///
-/// The flip transition is rendered separately via [FlipTransition] (it needs
-/// the photo entries to turn the blur borders off while rotating), so it falls
-/// back to a fade here if it ever reaches this generic builder.
-Widget buildPhotoTransition(
-  TransitionSpec spec,
-  Animation<double> animation,
-  Widget child,
-) {
-  switch (spec.type) {
-    case PhotoTransition.fade:
-      return FadeTransition(opacity: animation, child: child);
-
-    case PhotoTransition.slide:
-      const offsets = [
-        Offset(1, 0), // from right
-        Offset(-1, 0), // from left
-        Offset(0, -1), // from top
-        Offset(0, 1), // from bottom
-      ];
-      final begin = offsets[spec.variant % offsets.length];
-      return SlideTransition(
-        position: Tween<Offset>(begin: begin, end: Offset.zero).animate(
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-        ),
-        child: child,
-      );
-
-    case PhotoTransition.wipe:
-      return _WipeTransition(animation: animation, variant: spec.variant, child: child);
-
-    case PhotoTransition.zoom:
-      // variant 0 = zoom in (grow), variant 1 = zoom out (settle from larger).
-      final begin = spec.variant == 1 ? 1.18 : 0.82;
-      return FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: begin, end: 1.0).animate(
-            CurvedAnimation(parent: animation, curve: Curves.easeOut),
+/// Builds a complete, opaque photo face filling the screen: the photo
+/// (BoxFit.contain) over either a blurred full-bleed border (when [blurBorders])
+/// or plain black. Wrapped in a RepaintBoundary and using ImageFiltered (a
+/// forward blur of a static image) so Flutter's raster cache keeps it as a
+/// texture - the transition then only transforms/clips/alphas that cached
+/// texture each frame.
+Widget buildPhotoFace(PhotoEntry photo, Size screenSize, bool blurBorders) {
+  final image = PhotoSlide.createOptimizedProvider(photo.file, screenSize);
+  return RepaintBoundary(
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        if (blurBorders) ...[
+          ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Image(image: image, fit: BoxFit.cover, gaplessPlayback: true),
           ),
-          child: child,
+          Container(color: Colors.black.withOpacity(0.4)),
+        ] else
+          const ColoredBox(color: Colors.black),
+        Center(
+          child: Image(image: image, fit: BoxFit.contain, gaplessPlayback: true),
         ),
-      );
-
-    case PhotoTransition.flip:
-      // Rendered via FlipTransition directly; fall back to fade if reached.
-      return FadeTransition(opacity: animation, child: child);
-  }
+      ],
+    ),
+  );
 }
 
-/// Reveals [child] over what is beneath it, either wiping from an edge
-/// (variants 0-3) or opening a circular "iris" from the centre (variant 4).
-class _WipeTransition extends StatelessWidget {
-  const _WipeTransition({
+/// Plays a fade / slide / wipe / zoom transition that moves BOTH photos: the
+/// outgoing photo transitions out while the incoming photo transitions in (a
+/// push for slide, a paired scale for zoom, a crossfade for fade, a reveal for
+/// wipe), over a black backing that hides the settled slide beneath. The flip
+/// is handled by its own [FlipTransition].
+class PhotoTransitionView extends StatelessWidget {
+  const PhotoTransitionView({
+    super.key,
     required this.animation,
+    required this.type,
     required this.variant,
-    required this.child,
+    required this.newPhoto,
+    required this.previousPhoto,
+    required this.screenSize,
+    required this.blurBorders,
   });
 
   final Animation<double> animation;
+  final PhotoTransition type;
   final int variant;
-  final Widget child;
+  final PhotoEntry newPhoto;
+  final PhotoEntry? previousPhoto;
+  final Size screenSize;
+  final bool blurBorders;
+
+  Curve get _curve {
+    switch (type) {
+      case PhotoTransition.slide:
+      case PhotoTransition.zoom:
+        return Curves.easeOutCubic;
+      default:
+        return Curves.easeInOut;
+    }
+  }
+
+  /// Unit direction the incoming photo enters from (and the outgoing exits to,
+  /// negated): right / left / top / bottom for slide variants 0-3.
+  Offset get _slideDir {
+    switch (variant) {
+      case 1:
+        return const Offset(-1, 0); // from left
+      case 2:
+        return const Offset(0, -1); // from top
+      case 3:
+        return const Offset(0, 1); // from bottom
+      default:
+        return const Offset(1, 0); // from right
+    }
+  }
+
+  /// How the incoming [face] animates in at progress [t].
+  Widget _enter(Widget face, double t) {
+    switch (type) {
+      case PhotoTransition.fade:
+        return Opacity(opacity: t.clamp(0.0, 1.0), child: face);
+      case PhotoTransition.slide:
+        return FractionalTranslation(translation: _slideDir * (1 - t), child: face);
+      case PhotoTransition.zoom:
+        final begin = variant == 1 ? 1.15 : 0.85;
+        return Opacity(
+          opacity: t.clamp(0.0, 1.0),
+          child: Transform.scale(scale: begin + (1 - begin) * t, child: face),
+        );
+      case PhotoTransition.wipe:
+        return ClipPath(clipper: _WipeClipper(t, variant), child: face);
+      case PhotoTransition.flip:
+        return face;
+    }
+  }
+
+  /// How the outgoing [face] animates out at progress [t]. It stays fully
+  /// opaque (so crossfades don't dip to black); fade/wipe simply leave it in
+  /// place to be covered/revealed-over.
+  Widget _exit(Widget face, double t) {
+    switch (type) {
+      case PhotoTransition.slide:
+        return FractionalTranslation(translation: _slideDir * -t, child: face);
+      case PhotoTransition.zoom:
+        final end = variant == 1 ? 0.9 : 1.12;
+        return Transform.scale(scale: 1 + (end - 1) * t, child: face);
+      case PhotoTransition.fade:
+      case PhotoTransition.wipe:
+      case PhotoTransition.flip:
+        return face;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+    final curved = CurvedAnimation(parent: animation, curve: _curve);
+    // Built once (stable) so the RepaintBoundary rasters are reused per frame.
+    final newFace = buildPhotoFace(newPhoto, screenSize, blurBorders);
+    final oldFace = previousPhoto != null
+        ? buildPhotoFace(previousPhoto!, screenSize, blurBorders)
+        : null;
+
     return AnimatedBuilder(
       animation: curved,
-      child: child,
-      builder: (context, child) {
-        return ClipPath(
-          clipper: _WipeClipper(curved.value, variant),
-          child: child,
+      builder: (context, _) {
+        final t = curved.value;
+        if (t >= 1.0) {
+          return ColoredBox(color: Colors.black, child: newFace);
+        }
+        return ColoredBox(
+          color: Colors.black,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (oldFace != null) _exit(oldFace, t),
+              _enter(newFace, t),
+            ],
+          ),
         );
       },
     );
