@@ -745,6 +745,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
                 previousPhoto: slide.previousPhoto,
                 screenSize: _screenSize!,
                 blurBorders: config.blurBorders,
+                displayMode: config.photoDisplayMode,
               );
             }
 
@@ -757,6 +758,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
               previousPhoto: slide.previousPhoto,
               screenSize: _screenSize!,
               blurBorders: config.blurBorders,
+              displayMode: config.photoDisplayMode,
             );
           }).toList(),
 

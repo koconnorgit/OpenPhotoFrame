@@ -1,7 +1,6 @@
 import 'dart:math';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'photo_slide.dart';
+import 'photo_view.dart';
 import '../../domain/models/photo_entry.dart';
 
 /// The available photo-to-photo transition animations.
@@ -66,30 +65,30 @@ TransitionSpec resolveTransitionSpec(String transitionKey, Random random) {
   return TransitionSpec(type, random.nextInt(transitionVariantCount(type)));
 }
 
-/// Builds a complete, opaque photo face filling the screen: the photo
-/// (BoxFit.contain) over either a blurred full-bleed border (when [blurBorders])
-/// or plain black. Wrapped in a RepaintBoundary and using ImageFiltered (a
-/// forward blur of a static image) so Flutter's raster cache keeps it as a
-/// texture - the transition then only transforms/clips/alphas that cached
-/// texture each frame.
-Widget buildPhotoFace(PhotoEntry photo, Size screenSize, bool blurBorders) {
-  final image = PhotoSlide.createOptimizedProvider(photo.file, screenSize);
+/// Builds a complete, opaque photo face filling the screen for the given
+/// [displayMode]: the photo (fit/fill/pan) over a black backing, plus a blurred
+/// border behind it in `fit` mode when [blurBorders] is on. Wrapped in a
+/// RepaintBoundary so static faces are cached as a texture and the transition
+/// only transforms/clips/alphas that texture each frame.
+Widget buildPhotoFace(
+  PhotoEntry photo,
+  Size screenSize,
+  bool blurBorders,
+  String displayMode,
+) {
+  final content = photoImage(photo, screenSize, displayMode);
   return RepaintBoundary(
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        if (blurBorders) ...[
-          ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Image(image: image, fit: BoxFit.cover, gaplessPlayback: true),
-          ),
-          Container(color: Colors.black.withOpacity(0.4)),
-        ] else
-          const ColoredBox(color: Colors.black),
-        Center(
-          child: Image(image: image, fit: BoxFit.contain, gaplessPlayback: true),
-        ),
-      ],
+    child: ColoredBox(
+      color: Colors.black,
+      child: displayMode == kDisplayModeFit
+          ? Stack(
+              fit: StackFit.expand,
+              children: [
+                if (blurBorders) blurredBorder(photo, screenSize),
+                content,
+              ],
+            )
+          : content,
     ),
   );
 }
@@ -109,6 +108,7 @@ class PhotoTransitionView extends StatelessWidget {
     required this.previousPhoto,
     required this.screenSize,
     required this.blurBorders,
+    required this.displayMode,
   });
 
   final Animation<double> animation;
@@ -118,6 +118,7 @@ class PhotoTransitionView extends StatelessWidget {
   final PhotoEntry? previousPhoto;
   final Size screenSize;
   final bool blurBorders;
+  final String displayMode;
 
   Curve get _curve {
     switch (type) {
@@ -185,9 +186,9 @@ class PhotoTransitionView extends StatelessWidget {
   Widget build(BuildContext context) {
     final curved = CurvedAnimation(parent: animation, curve: _curve);
     // Built once (stable) so the RepaintBoundary rasters are reused per frame.
-    final newFace = buildPhotoFace(newPhoto, screenSize, blurBorders);
+    final newFace = buildPhotoFace(newPhoto, screenSize, blurBorders, displayMode);
     final oldFace = previousPhoto != null
-        ? buildPhotoFace(previousPhoto!, screenSize, blurBorders)
+        ? buildPhotoFace(previousPhoto!, screenSize, blurBorders, displayMode)
         : null;
 
     return AnimatedBuilder(
@@ -274,6 +275,7 @@ class FlipTransition extends StatelessWidget {
     required this.previousPhoto,
     required this.screenSize,
     required this.blurBorders,
+    required this.displayMode,
   });
 
   final Animation<double> animation;
@@ -282,36 +284,10 @@ class FlipTransition extends StatelessWidget {
   final PhotoEntry? previousPhoto;
   final Size screenSize;
   final bool blurBorders;
+  final String displayMode;
 
-  /// The photo itself, fit to the screen (no border treatment).
-  Widget _containImage(PhotoEntry photo) {
-    return Center(
-      child: Image(
-        image: PhotoSlide.createOptimizedProvider(photo.file, screenSize),
-        fit: BoxFit.contain,
-        gaplessPlayback: true,
-      ),
-    );
-  }
-
-  /// The blurred, darkened full-bleed background shown in the letterbox borders.
-  /// Uses ImageFiltered (a forward blur of a static image) in a RepaintBoundary
-  /// so the blur is rasterized once and the raster cache reuses it as a texture.
-  Widget _blurredBorder(PhotoEntry photo) {
-    final image = PhotoSlide.createOptimizedProvider(photo.file, screenSize);
-    return RepaintBoundary(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Image(image: image, fit: BoxFit.cover, gaplessPlayback: true),
-          ),
-          Container(color: Colors.black.withOpacity(0.4)),
-        ],
-      ),
-    );
-  }
+  /// Blurred borders only exist in `fit` mode; `fill`/`pan` fill the frame.
+  bool get _useBlur => displayMode == kDisplayModeFit && blurBorders;
 
   /// One face: black backing, the blurred border at [blurFade] opacity, then the
   /// photo on top. [blur]/[contain] are stable instances so their rasters cache.
@@ -345,12 +321,14 @@ class FlipTransition extends StatelessWidget {
     final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
     final hasPrevious = previousPhoto != null;
 
-    // Stable, raster-cacheable pieces (built once, not per frame).
-    final newContain = _containImage(newPhoto);
-    final newBlur = blurBorders ? _blurredBorder(newPhoto) : const SizedBox.shrink();
-    final prevContain = hasPrevious ? _containImage(previousPhoto!) : null;
-    final prevBlur = (hasPrevious && blurBorders)
-        ? _blurredBorder(previousPhoto!)
+    // Stable, raster-cacheable pieces (built once, not per frame). The contain
+    // image follows the display mode (fit/fill/pan); blur exists in fit mode.
+    final newContain = photoImage(newPhoto, screenSize, displayMode);
+    final newBlur = _useBlur ? blurredBorder(newPhoto, screenSize) : const SizedBox.shrink();
+    final prevContain =
+        hasPrevious ? photoImage(previousPhoto!, screenSize, displayMode) : null;
+    final prevBlur = (hasPrevious && _useBlur)
+        ? blurredBorder(previousPhoto!, screenSize)
         : const SizedBox.shrink();
 
     return AnimatedBuilder(
@@ -360,7 +338,7 @@ class FlipTransition extends StatelessWidget {
 
         // Settled: photo flat with the blur fully faded in.
         if (t >= 1.0) {
-          return _face(newContain, newBlur, blurBorders ? 1.0 : 0.0);
+          return _face(newContain, newBlur, _useBlur ? 1.0 : 0.0);
         }
 
         // Outgoing: flat (0) -> edge-on (+90deg); its blur fades out as it turns.
@@ -378,10 +356,10 @@ class FlipTransition extends StatelessWidget {
             children: [
               if (prevContain != null)
                 _rotated(
-                  _face(prevContain, prevBlur, blurBorders ? (1 - out) : 0.0),
+                  _face(prevContain, prevBlur, _useBlur ? (1 - out) : 0.0),
                   outAngle,
                 ),
-              _rotated(_face(newContain, newBlur, blurBorders ? inP : 0.0), inAngle),
+              _rotated(_face(newContain, newBlur, _useBlur ? inP : 0.0), inAngle),
             ],
           ),
         );

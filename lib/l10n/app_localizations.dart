@@ -182,6 +182,30 @@ abstract class AppLocalizations {
   /// **'Extend image to screen size'**
   String get blurBordersSubtitle;
 
+  /// No description provided for @displayMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo Display'**
+  String get displayMode;
+
+  /// No description provided for @displayModeFit.
+  ///
+  /// In en, this message translates to:
+  /// **'Fit whole photo'**
+  String get displayModeFit;
+
+  /// No description provided for @displayModeFill.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill frame'**
+  String get displayModeFill;
+
+  /// No description provided for @displayModePan.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill & pan'**
+  String get displayModePan;
+
   /// No description provided for @unitMinutes.
   ///
   /// In en, this message translates to:

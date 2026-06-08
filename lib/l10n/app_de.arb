@@ -16,6 +16,10 @@
   "transitionRandom": "Zufällig",
   "blurBorders": "Rand unscharf",
   "blurBordersSubtitle": "Bild mit Unschärfe bis zum Bildschirmrand zeichnen",
+  "displayMode": "Foto-Anzeige",
+  "displayModeFit": "Ganzes Foto einpassen",
+  "displayModeFill": "Rahmen füllen",
+  "displayModePan": "Füllen & schwenken",
   "unitMinutes": "Min",
   "unitSeconds": "Sek",
   

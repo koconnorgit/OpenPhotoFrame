@@ -276,6 +276,14 @@ class JsonConfigService extends ConfigProvider {
     _config['blur_borders'] = value;
   }
 
+  @override
+  String get photoDisplayMode => _config['photo_display_mode'] ?? 'fit';
+
+  @override
+  set photoDisplayMode(String value) {
+    _config['photo_display_mode'] = value;
+  }
+
 
   // Sync settings
   @override

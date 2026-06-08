@@ -46,6 +46,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late TextEditingController _slideDurationController;
   late double _transitionDurationSeconds;
   late String _transitionType;
+  late String _photoDisplayMode;
   late bool _blurBorders;
   late String _syncType;
   late TextEditingController _nextcloudUrlController;
@@ -143,6 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         TextEditingController(text: config.slideDurationSeconds.toString());
     _transitionDurationSeconds = (config.transitionDurationMs / 1000.0).clamp(0.5, 5.0);
     _transitionType = config.transitionType;
+    _photoDisplayMode = config.photoDisplayMode;
     _blurBorders = config.blurBorders;
     // Default sync type: app_folder on Android, local_folder on Desktop
     final defaultSyncType = Platform.isAndroid ? 'app_folder' : 'local_folder';
@@ -345,6 +347,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _slideDurationController.text = slideDurationSeconds.toString();
     config.transitionDurationMs = (_transitionDurationSeconds * 1000).round();
     config.transitionType = _transitionType;
+    config.photoDisplayMode = _photoDisplayMode;
     config.blurBorders = _blurBorders;
     // app_folder and local_folder both use empty activeSourceType (no sync)
     final isLocalMode = _syncType == 'local_folder' || _syncType == 'app_folder';
@@ -457,18 +460,25 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           // Transition Style
           _buildTransitionStyleSelector(),
 
+          const SizedBox(height: 8),
+
+          // Photo Display Mode
+          _buildDisplayModeSelector(),
+
           const SizedBox(height: 16),
 
-          SwitchListTile(
-            title: Text(AppLocalizations.of(context)!.blurBorders),
-            subtitle: Text(AppLocalizations.of(context)!.blurBordersSubtitle),
-            secondary: const Icon(Icons.blur_linear),
-            value: _blurBorders,
-            onChanged: (value) {
-              setState(() => _blurBorders = value);
-            },
-          ),
-          
+          // Blur borders only apply in "fit" mode (fill/pan fill the frame).
+          if (_photoDisplayMode == 'fit')
+            SwitchListTile(
+              title: Text(AppLocalizations.of(context)!.blurBorders),
+              subtitle: Text(AppLocalizations.of(context)!.blurBordersSubtitle),
+              secondary: const Icon(Icons.blur_linear),
+              value: _blurBorders,
+              onChanged: (value) {
+                setState(() => _blurBorders = value);
+              },
+            ),
+
           const SizedBox(height: 16),
           
           // Screen Orientation
@@ -1950,6 +1960,45 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
   
+  Widget _buildDisplayModeSelector() {
+    final localizations = AppLocalizations.of(context)!;
+
+    final options = <String, (String, IconData)>{
+      'fit': (localizations.displayModeFit, Icons.fit_screen),
+      'fill': (localizations.displayModeFill, Icons.crop),
+      'pan': (localizations.displayModePan, Icons.pan_tool_alt),
+    };
+    final current = options[_photoDisplayMode] ?? options['fit']!;
+
+    return ListTile(
+      leading: const Icon(Icons.aspect_ratio),
+      title: Text(localizations.displayMode),
+      subtitle: Text(current.$1),
+      trailing: DropdownButton<String>(
+        value: options.containsKey(_photoDisplayMode) ? _photoDisplayMode : 'fit',
+        underline: const SizedBox(),
+        items: options.entries.map((entry) {
+          return DropdownMenuItem(
+            value: entry.key,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(entry.value.$2, size: 20),
+                const SizedBox(width: 8),
+                Text(entry.value.$1),
+              ],
+            ),
+          );
+        }).toList(),
+        onChanged: (value) {
+          if (value != null) {
+            setState(() => _photoDisplayMode = value);
+          }
+        },
+      ),
+    );
+  }
+
   Widget _buildTransitionStyleSelector() {
     final localizations = AppLocalizations.of(context)!;
 

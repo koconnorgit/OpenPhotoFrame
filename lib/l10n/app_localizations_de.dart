@@ -52,6 +52,18 @@ class AppLocalizationsDe extends AppLocalizations {
       'Bild mit Unschärfe bis zum Bildschirmrand zeichnen';
 
   @override
+  String get displayMode => 'Foto-Anzeige';
+
+  @override
+  String get displayModeFit => 'Ganzes Foto einpassen';
+
+  @override
+  String get displayModeFill => 'Rahmen füllen';
+
+  @override
+  String get displayModePan => 'Füllen & schwenken';
+
+  @override
   String get unitMinutes => 'Min';
 
   @override

@@ -16,6 +16,10 @@
   "transitionRandom": "Random",
   "blurBorders": "Blur Borders",
   "blurBordersSubtitle": "Extend image to screen size",
+  "displayMode": "Photo Display",
+  "displayModeFit": "Fit whole photo",
+  "displayModeFill": "Fill frame",
+  "displayModePan": "Fill & pan",
   "unitMinutes": "min",
   "unitSeconds": "sec",
   

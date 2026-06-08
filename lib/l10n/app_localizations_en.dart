@@ -51,6 +51,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blurBordersSubtitle => 'Extend image to screen size';
 
   @override
+  String get displayMode => 'Photo Display';
+
+  @override
+  String get displayModeFit => 'Fit whole photo';
+
+  @override
+  String get displayModeFill => 'Fill frame';
+
+  @override
+  String get displayModePan => 'Fill & pan';
+
+  @override
   String get unitMinutes => 'min';
 
   @override

@@ -21,9 +21,13 @@ abstract class ConfigProvider extends ChangeNotifier {
   String get transitionType;
   set transitionType(String value);
 
-  bool get blurBorders; // Blur borders outside image
+  bool get blurBorders; // Blur borders outside image (fit mode only)
   set blurBorders(bool value);
-  
+
+  // Photo display mode: 'fit' (whole photo), 'fill' (zoom to fill), 'pan' (Ken Burns)
+  String get photoDisplayMode;
+  set photoDisplayMode(String value);
+
   // Sync settings
   int get syncIntervalMinutes; // 0 = disabled, otherwise interval in minutes
   set syncIntervalMinutes(int value);

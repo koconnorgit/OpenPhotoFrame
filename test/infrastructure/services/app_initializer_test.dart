@@ -58,6 +58,12 @@ class FakeConfigProvider extends ChangeNotifier implements ConfigProvider {
   set blurBorders(bool value) {}
 
   @override
+  String get photoDisplayMode => 'fit';
+
+  @override
+  set photoDisplayMode(String value) {}
+
+  @override
   int get syncIntervalMinutes => 0;
 
   @override
