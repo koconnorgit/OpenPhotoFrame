@@ -58,6 +58,15 @@ abstract class ConfigProvider extends ChangeNotifier {
   bool get clockRandomPosition; // Move clock to a random corner on each photo change
   set clockRandomPosition(bool value);
 
+  bool get showClockDate; // Show day/date in a smaller font under the time
+  set showClockDate(bool value);
+
+  bool get clockDateCompact; // Use abbreviated day/month names (e.g. Wed, Jun 10)
+  set clockDateCompact(bool value);
+
+  bool get clockDateSeparateLine; // Put the weekday on its own line above the date
+  set clockDateSeparateLine(bool value);
+
   // Display schedule settings (day/night mode)
   bool get scheduleEnabled; // Enable day/night schedule
   set scheduleEnabled(bool value);

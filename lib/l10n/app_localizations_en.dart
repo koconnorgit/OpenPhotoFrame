@@ -81,6 +81,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showClockSubtitle => 'Display time on slideshow';
 
   @override
+  String get showClockDate => 'Show date';
+
+  @override
+  String get showClockDateSubtitle =>
+      'Display the day and date in a smaller font under the time';
+
+  @override
+  String get clockDateCompact => 'Compact date';
+
+  @override
+  String get clockDateCompactSubtitle =>
+      'Use abbreviated day and month names (e.g. Wed, Jun 10)';
+
+  @override
+  String get clockDateSeparateLine => 'Day on separate line';
+
+  @override
+  String get clockDateSeparateLineSubtitle =>
+      'Show the weekday on its own line above the date';
+
+  @override
   String get clockRandomPosition => 'Random position';
 
   @override

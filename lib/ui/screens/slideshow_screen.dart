@@ -769,9 +769,14 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
                   ? _clockCorner
                   : config.clockPosition;
               return ClockOverlay(
-                key: ValueKey('clock_${config.clockSize}_$clockPosition'),
+                key: ValueKey('clock_${config.clockSize}_${clockPosition}_'
+                    '${config.showClockDate}_${config.clockDateCompact}_'
+                    '${config.clockDateSeparateLine}'),
                 size: config.clockSize,
                 position: clockPosition,
+                showDate: config.showClockDate,
+                compactDate: config.clockDateCompact,
+                separateDateLine: config.clockDateSeparateLine,
               );
             }),
 

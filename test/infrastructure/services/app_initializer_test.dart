@@ -112,6 +112,24 @@ class FakeConfigProvider extends ChangeNotifier implements ConfigProvider {
   set clockRandomPosition(bool value) {}
 
   @override
+  bool get showClockDate => false;
+
+  @override
+  set showClockDate(bool value) {}
+
+  @override
+  bool get clockDateCompact => false;
+
+  @override
+  set clockDateCompact(bool value) {}
+
+  @override
+  bool get clockDateSeparateLine => false;
+
+  @override
+  set clockDateSeparateLine(bool value) {}
+
+  @override
   bool get scheduleEnabled => false;
 
   @override

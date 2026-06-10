@@ -82,6 +82,27 @@ class AppLocalizationsDe extends AppLocalizations {
   String get showClockSubtitle => 'Uhrzeit auf der Diashow anzeigen';
 
   @override
+  String get showClockDate => 'Datum anzeigen';
+
+  @override
+  String get showClockDateSubtitle =>
+      'Wochentag und Datum in kleinerer Schrift unter der Uhrzeit anzeigen';
+
+  @override
+  String get clockDateCompact => 'Kompaktes Datum';
+
+  @override
+  String get clockDateCompactSubtitle =>
+      'Abgekürzte Wochentags- und Monatsnamen verwenden (z. B. Mi., 10. Juni)';
+
+  @override
+  String get clockDateSeparateLine => 'Wochentag in eigener Zeile';
+
+  @override
+  String get clockDateSeparateLineSubtitle =>
+      'Wochentag in einer eigenen Zeile über dem Datum anzeigen';
+
+  @override
   String get clockRandomPosition => 'Zufällige Position';
 
   @override

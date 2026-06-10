@@ -242,6 +242,42 @@ abstract class AppLocalizations {
   /// **'Display time on slideshow'**
   String get showClockSubtitle;
 
+  /// No description provided for @showClockDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Show date'**
+  String get showClockDate;
+
+  /// No description provided for @showClockDateSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Display the day and date in a smaller font under the time'**
+  String get showClockDateSubtitle;
+
+  /// No description provided for @clockDateCompact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact date'**
+  String get clockDateCompact;
+
+  /// No description provided for @clockDateCompactSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use abbreviated day and month names (e.g. Wed, Jun 10)'**
+  String get clockDateCompactSubtitle;
+
+  /// No description provided for @clockDateSeparateLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Day on separate line'**
+  String get clockDateSeparateLine;
+
+  /// No description provided for @clockDateSeparateLineSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the weekday on its own line above the date'**
+  String get clockDateSeparateLineSubtitle;
+
   /// No description provided for @clockRandomPosition.
   ///
   /// In en, this message translates to:

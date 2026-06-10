@@ -60,6 +60,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late String _clockSize;
   late String _clockPosition;
   late bool _clockRandomPosition;
+  late bool _showClockDate;
+  late bool _clockDateCompact;
+  late bool _clockDateSeparateLine;
   
   // Photo info settings
   late bool _showPhotoInfo;
@@ -158,6 +161,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _clockSize = config.clockSize;
     _clockPosition = config.clockPosition;
     _clockRandomPosition = config.clockRandomPosition;
+    _showClockDate = config.showClockDate;
+    _clockDateCompact = config.clockDateCompact;
+    _clockDateSeparateLine = config.clockDateSeparateLine;
     
     // Photo info settings
     _showPhotoInfo = config.showPhotoInfo;
@@ -367,6 +373,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     config.clockSize = _clockSize;
     config.clockPosition = _clockPosition;
     config.clockRandomPosition = _clockRandomPosition;
+    config.showClockDate = _showClockDate;
+    config.clockDateCompact = _clockDateCompact;
+    config.clockDateSeparateLine = _clockDateSeparateLine;
     
     // Photo info settings
     config.showPhotoInfo = _showPhotoInfo;
@@ -505,6 +514,39 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           if (_showClock) ...[
             const SizedBox(height: 8),
             _buildClockSizeSelector(),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              title: Text(AppLocalizations.of(context)!.showClockDate),
+              subtitle: Text(AppLocalizations.of(context)!.showClockDateSubtitle),
+              secondary: const Icon(Icons.calendar_today),
+              value: _showClockDate,
+              onChanged: (value) {
+                setState(() => _showClockDate = value);
+              },
+            ),
+            if (_showClockDate) ...[
+              SwitchListTile(
+                title: Text(AppLocalizations.of(context)!.clockDateCompact),
+                subtitle:
+                    Text(AppLocalizations.of(context)!.clockDateCompactSubtitle),
+                secondary: const Icon(Icons.short_text),
+                value: _clockDateCompact,
+                onChanged: (value) {
+                  setState(() => _clockDateCompact = value);
+                },
+              ),
+              SwitchListTile(
+                title:
+                    Text(AppLocalizations.of(context)!.clockDateSeparateLine),
+                subtitle: Text(AppLocalizations.of(context)!
+                    .clockDateSeparateLineSubtitle),
+                secondary: const Icon(Icons.wrap_text),
+                value: _clockDateSeparateLine,
+                onChanged: (value) {
+                  setState(() => _clockDateSeparateLine = value);
+                },
+              ),
+            ],
             const SizedBox(height: 8),
             SwitchListTile(
               title: Text(AppLocalizations.of(context)!.clockRandomPosition),

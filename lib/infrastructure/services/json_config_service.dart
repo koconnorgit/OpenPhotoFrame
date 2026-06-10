@@ -363,6 +363,30 @@ class JsonConfigService extends ConfigProvider {
     _config['clock_random_position'] = value;
   }
 
+  @override
+  bool get showClockDate => _config['show_clock_date'] ?? false;
+
+  @override
+  set showClockDate(bool value) {
+    _config['show_clock_date'] = value;
+  }
+
+  @override
+  bool get clockDateCompact => _config['clock_date_compact'] ?? false;
+
+  @override
+  set clockDateCompact(bool value) {
+    _config['clock_date_compact'] = value;
+  }
+
+  @override
+  bool get clockDateSeparateLine => _config['clock_date_separate_line'] ?? false;
+
+  @override
+  set clockDateSeparateLine(bool value) {
+    _config['clock_date_separate_line'] = value;
+  }
+
   // Display schedule settings (day/night mode)
   @override
   bool get scheduleEnabled => _config['schedule_enabled'] ?? false;
