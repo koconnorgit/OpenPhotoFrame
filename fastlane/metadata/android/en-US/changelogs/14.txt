@@ -1,0 +1,7 @@
+New features:
+• SMB network share as a photo source
+• Photo display modes: fit, fill, and pan (Ken Burns), plus a random mode
+• Selectable photo transition styles, including a two-sided 3D flip
+• Optional day/date under the clock, with compact and separate-line styles
+• Random clock position option
+• Storage usage indicator in settings
