@@ -1,3 +1,5 @@
+import 'folder_selection.dart';
+
 enum NextcloudFolderSyncMode {
   all,
   selectedFolders,
@@ -8,48 +10,63 @@ class NextcloudSourceConfig {
     this.url = '',
     this.folderSyncMode = NextcloudFolderSyncMode.all,
     this.selectedFolders = const <String>[],
+    this.excludedFolders = const <String>[],
   });
 
   final String url;
   final NextcloudFolderSyncMode folderSyncMode;
+
+  /// Folders to sync. Each selected folder includes itself and all of its
+  /// descendants, so subfolders added later sync automatically.
   final List<String> selectedFolders;
 
-  factory NextcloudSourceConfig.fromMap(Map<String, dynamic> config) {
-    final rawFolders = config['selected_folders'];
+  /// Folders explicitly opted out of an otherwise-selected subtree.
+  final List<String> excludedFolders;
 
+  factory NextcloudSourceConfig.fromMap(Map<String, dynamic> config) {
     return NextcloudSourceConfig(
       url: (config['url'] as String? ?? '').trim(),
       folderSyncMode: (config['folder_sync_mode'] as String?) == 'selected'
           ? NextcloudFolderSyncMode.selectedFolders
           : NextcloudFolderSyncMode.all,
-      selectedFolders: switch (rawFolders) {
-        List<dynamic>() => rawFolders.map((entry) => '$entry').toList(),
-        _ => const <String>[],
-      },
+      selectedFolders: _stringList(config['selected_folders']),
+      excludedFolders: _stringList(config['excluded_folders']),
     );
+  }
+
+  static List<String> _stringList(Object? raw) {
+    return switch (raw) {
+      List<dynamic>() => raw.map((entry) => '$entry').toList(),
+      _ => const <String>[],
+    };
   }
 
   bool get syncAllFolders => folderSyncMode == NextcloudFolderSyncMode.all;
 
-  Set<String> get normalizedSelectedFolders {
-    final normalizedFolders = selectedFolders
-        .map(normalizeFolderPath)
-        .toSet();
-    final includesRoot = selectedFolders.any(
+  Set<String> get normalizedSelectedFolders =>
+      _normalizeFolderSet(selectedFolders);
+
+  Set<String> get normalizedExcludedFolders =>
+      _normalizeFolderSet(excludedFolders);
+
+  static Set<String> _normalizeFolderSet(List<String> folders) {
+    final normalized = folders.map(normalizeFolderPath).toSet();
+    final includesRoot = folders.any(
       (folder) => normalizeFolderPath(folder).isEmpty,
     );
     if (!includesRoot) {
-      normalizedFolders.remove('');
+      normalized.remove('');
     }
-    return normalizedFolders;
+    return normalized;
   }
 
   bool includesDirectory(String directoryPath) {
-    if (syncAllFolders) {
-      return true;
-    }
-
-    return normalizedSelectedFolders.contains(normalizeFolderPath(directoryPath));
+    return folderIsIncluded(
+      normalizeFolderPath(directoryPath),
+      selectedFolders: normalizedSelectedFolders,
+      excludedFolders: normalizedExcludedFolders,
+      syncAllFolders: syncAllFolders,
+    );
   }
 
   bool includesRelativeFile(String relativePath) {
@@ -60,11 +77,13 @@ class NextcloudSourceConfig {
     String? url,
     NextcloudFolderSyncMode? folderSyncMode,
     List<String>? selectedFolders,
+    List<String>? excludedFolders,
   }) {
     return NextcloudSourceConfig(
       url: url ?? this.url,
       folderSyncMode: folderSyncMode ?? this.folderSyncMode,
       selectedFolders: selectedFolders ?? this.selectedFolders,
+      excludedFolders: excludedFolders ?? this.excludedFolders,
     );
   }
 
@@ -76,6 +95,7 @@ class NextcloudSourceConfig {
         NextcloudFolderSyncMode.selectedFolders => 'selected',
       },
       'selected_folders': normalizedSelectedFolders.toList()..sort(),
+      'excluded_folders': normalizedExcludedFolders.toList()..sort(),
     };
   }
 

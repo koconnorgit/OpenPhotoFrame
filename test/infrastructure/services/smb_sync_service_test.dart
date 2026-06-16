@@ -96,6 +96,7 @@ void main() {
         'password': 'secret',
         'folder_sync_mode': 'selected',
         'selected_folders': ['/', 'albums//summer/'],
+        'excluded_folders': ['albums/summer/private/'],
       });
 
       expect(config.host, '192.168.1.10');
@@ -106,13 +107,53 @@ void main() {
       expect(config.isConfigured, isTrue);
       expect(config.syncAllFolders, isFalse);
       expect(config.normalizedSelectedFolders, {'', 'albums/summer'});
-      expect(config.includesRelativeFile('albums/summer/photo.jpg'), isTrue);
-      expect(config.includesRelativeFile('albums/photo.jpg'), isFalse);
+      expect(config.normalizedExcludedFolders, {'albums/summer/private'});
+      // Root is selected, so everything syncs except the excluded subtree.
+      expect(config.includesRelativeFile('albums/photo.jpg'), isTrue);
+      expect(config.includesRelativeFile('albums/summer/private/x.jpg'), isFalse);
 
       final restored = SmbSourceConfig.fromMap(config.toMap());
       expect(restored.host, config.host);
       expect(restored.path, config.path);
       expect(restored.normalizedSelectedFolders, config.normalizedSelectedFolders);
+      expect(restored.normalizedExcludedFolders, config.normalizedExcludedFolders);
+    });
+
+    test('selecting a folder includes its subfolders, with opt-out exclusions',
+        () {
+      const config = SmbSourceConfig(
+        host: '192.168.1.10',
+        share: 'photos',
+        folderSyncMode: SmbFolderSyncMode.selectedFolders,
+        selectedFolders: ['albums'],
+        excludedFolders: ['albums/2024/private'],
+      );
+
+      // A subfolder added under a selected folder is synced automatically.
+      expect(config.includesRelativeFile('albums/2024/photo.jpg'), isTrue);
+      expect(config.includesRelativeFile('albums/2025/new/photo.jpg'), isTrue);
+      // The excluded subtree is skipped...
+      expect(config.includesRelativeFile('albums/2024/private/photo.jpg'), isFalse);
+      // ...while its siblings still sync.
+      expect(config.includesRelativeFile('albums/2024/public/photo.jpg'), isTrue);
+      // Folders outside the selection are not synced.
+      expect(config.includesRelativeFile('other/photo.jpg'), isFalse);
+    });
+
+    test('a deeper selection re-includes below an exclusion', () {
+      const config = SmbSourceConfig(
+        host: '192.168.1.10',
+        share: 'photos',
+        folderSyncMode: SmbFolderSyncMode.selectedFolders,
+        selectedFolders: ['albums', 'albums/2024/private/public'],
+        excludedFolders: ['albums/2024/private'],
+      );
+
+      expect(config.includesRelativeFile('albums/2024/private/x.jpg'), isFalse);
+      expect(
+        config.includesRelativeFile('albums/2024/private/public/x.jpg'),
+        isTrue,
+      );
     });
 
     test('is not configured without host and share', () {
@@ -332,6 +373,64 @@ void main() {
 
       expect(client.downloadedPaths, ['/photos/albums/keep.jpg']);
       expect(File('${tempDir.path}/root.jpg').existsSync(), isFalse);
+    });
+
+    test('sync pulls a new subfolder under a selected folder', () async {
+      final client = FakeSmbRemoteClient(
+        directories: {
+          '/photos': const [
+            SmbRemoteEntry(
+              path: '/photos/albums',
+              name: 'albums',
+              isDirectory: true,
+            ),
+            SmbRemoteEntry(
+              path: '/photos/other',
+              name: 'other',
+              isDirectory: true,
+            ),
+          ],
+          // A subfolder that did not exist when 'albums' was first selected.
+          '/photos/albums': const [
+            SmbRemoteEntry(
+              path: '/photos/albums/2025',
+              name: '2025',
+              isDirectory: true,
+            ),
+          ],
+          '/photos/albums/2025': const [
+            SmbRemoteEntry(
+              path: '/photos/albums/2025/new.jpg',
+              name: 'new.jpg',
+              isDirectory: false,
+            ),
+          ],
+          '/photos/other': const [
+            SmbRemoteEntry(
+              path: '/photos/other/skip.jpg',
+              name: 'skip.jpg',
+              isDirectory: false,
+            ),
+          ],
+        },
+      );
+
+      final service = SmbSyncService.fromConfig(
+        SmbSourceConfig.fromMap(const {
+          'host': '192.168.1.10',
+          'share': 'photos',
+          'folder_sync_mode': 'selected',
+          'selected_folders': ['albums'],
+        }),
+        storageProvider,
+        clientFactory: factoryFor(client),
+      );
+
+      await service.sync();
+
+      expect(client.downloadedPaths, ['/photos/albums/2025/new.jpg']);
+      expect(File('${tempDir.path}/albums/2025/new.jpg').existsSync(), isTrue);
+      expect(File('${tempDir.path}/other/skip.jpg').existsSync(), isFalse);
     });
 
     test('sync deletes orphaned local files when requested', () async {

@@ -60,20 +60,42 @@ class FakeNextcloudRemoteClient implements NextcloudRemoteClient {
 
 void main() {
   group('NextcloudSourceConfig', () {
-    test('normalizes root and nested folders', () {
+    test('normalizes root and nested folders, round-trips exclusions', () {
       final config = NextcloudSourceConfig.fromMap({
         'url': 'https://cloud.example.com/s/abc',
         'folder_sync_mode': 'selected',
         'selected_folders': ['/', 'albums//summer/'],
+        'excluded_folders': ['albums/summer/private/'],
       });
 
       expect(config.syncAllFolders, isFalse);
       expect(config.normalizedSelectedFolders, {'', 'albums/summer'});
+      expect(config.normalizedExcludedFolders, {'albums/summer/private'});
+      // Root is selected, so everything syncs except the excluded subtree.
       expect(config.includesDirectory(''), isTrue);
-      expect(config.includesDirectory('albums/summer'), isTrue);
-      expect(config.includesDirectory('albums'), isFalse);
-      expect(config.includesRelativeFile('albums/summer/photo.jpg'), isTrue);
-      expect(config.includesRelativeFile('albums/photo.jpg'), isFalse);
+      expect(config.includesDirectory('albums'), isTrue);
+      expect(config.includesRelativeFile('albums/photo.jpg'), isTrue);
+      expect(config.includesRelativeFile('albums/summer/private/x.jpg'), isFalse);
+
+      final restored = NextcloudSourceConfig.fromMap(config.toMap());
+      expect(restored.normalizedSelectedFolders, config.normalizedSelectedFolders);
+      expect(restored.normalizedExcludedFolders, config.normalizedExcludedFolders);
+    });
+
+    test('selecting a folder includes its subfolders, with opt-out exclusions',
+        () {
+      const config = NextcloudSourceConfig(
+        url: 'https://cloud.example.com/s/abc',
+        folderSyncMode: NextcloudFolderSyncMode.selectedFolders,
+        selectedFolders: ['albums'],
+        excludedFolders: ['albums/2024/private'],
+      );
+
+      expect(config.includesRelativeFile('albums/2024/photo.jpg'), isTrue);
+      expect(config.includesRelativeFile('albums/2025/new/photo.jpg'), isTrue);
+      expect(config.includesRelativeFile('albums/2024/private/photo.jpg'), isFalse);
+      expect(config.includesRelativeFile('albums/2024/public/photo.jpg'), isTrue);
+      expect(config.includesRelativeFile('other/photo.jpg'), isFalse);
     });
   });
 
@@ -294,7 +316,7 @@ void main() {
         );
       });
 
-    test('sync only downloads images from selected folders', () async {
+    test('sync downloads a selected subtree except excluded subfolders', () async {
       final client = FakeNextcloudRemoteClient(
         directories: {
           '/': const [
@@ -339,10 +361,12 @@ void main() {
           required String user,
           required String password,
         }) => client,
+        // 'albums' syncs its whole subtree; 'albums/sub' is explicitly opted out.
         sourceConfig: const NextcloudSourceConfig(
           url: 'https://cloud.example.com/s/abc123',
           folderSyncMode: NextcloudFolderSyncMode.selectedFolders,
           selectedFolders: ['albums'],
+          excludedFolders: ['albums/sub'],
         ),
       );
 

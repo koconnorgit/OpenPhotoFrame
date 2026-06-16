@@ -13,6 +13,7 @@ import '../../domain/interfaces/storage_provider.dart';
 import '../../infrastructure/services/storage_info_service.dart';
 import '../../infrastructure/repositories/hybrid_photo_repository.dart';
 import '../../infrastructure/services/photo_service.dart';
+import '../../infrastructure/services/folder_selection.dart';
 import '../../infrastructure/services/nextcloud_source_config.dart';
 import '../../infrastructure/services/nextcloud_sync_service.dart';
 import '../../infrastructure/services/smb_source_config.dart';
@@ -92,6 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
   late NextcloudFolderSyncMode _nextcloudFolderSyncMode;
   late Set<String> _selectedNextcloudFolders;
+  late Set<String> _excludedNextcloudFolders;
   List<NextcloudFolder> _availableNextcloudFolders = [];
   bool _isLoadingNextcloudFolders = false;
   String? _nextcloudFolderLoadError;
@@ -105,6 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late TextEditingController _smbPasswordController;
   late SmbFolderSyncMode _smbFolderSyncMode;
   late Set<String> _selectedSmbFolders;
+  late Set<String> _excludedSmbFolders;
   List<SmbFolder> _availableSmbFolders = [];
   bool _isLoadingSmbFolders = false;
   String? _smbFolderLoadError;
@@ -202,6 +205,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
     _nextcloudFolderSyncMode = nextcloudConfig.folderSyncMode;
     _selectedNextcloudFolders = {...nextcloudConfig.normalizedSelectedFolders};
+    _excludedNextcloudFolders = {...nextcloudConfig.normalizedExcludedFolders};
     
     final smbConfig = SmbSourceConfig.fromMap(
       config.getSourceConfig('smb'),
@@ -214,6 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _smbPasswordController = TextEditingController(text: smbConfig.password);
     _smbFolderSyncMode = smbConfig.folderSyncMode;
     _selectedSmbFolders = {...smbConfig.normalizedSelectedFolders};
+    _excludedSmbFolders = {...smbConfig.normalizedExcludedFolders};
 
     // Store original values for comparison on save
     _originalSyncType = _syncType;
@@ -1279,6 +1284,32 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
 
+  bool _nextcloudFolderIsIncluded(String path) {
+    return folderIsIncluded(
+      path,
+      selectedFolders: _selectedNextcloudFolders,
+      excludedFolders: _excludedNextcloudFolders,
+      syncAllFolders: false,
+    );
+  }
+
+  /// Checking a folder syncs its whole subtree; unchecking opts it back out.
+  /// Explicit entries stay minimal — a folder already covered by a selected
+  /// ancestor doesn't get its own entry.
+  void _toggleNextcloudFolder(String path, bool include) {
+    if (include) {
+      _excludedNextcloudFolders.remove(path);
+      if (!_nextcloudFolderIsIncluded(path)) {
+        _selectedNextcloudFolders.add(path);
+      }
+    } else {
+      _selectedNextcloudFolders.remove(path);
+      if (_nextcloudFolderIsIncluded(path)) {
+        _excludedNextcloudFolders.add(path);
+      }
+    }
+  }
+
   Widget _buildNextcloudFolderSelection() {
     final localizations = AppLocalizations.of(context)!;
 
@@ -1328,7 +1359,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             ),
             child: Column(
               children: _availableNextcloudFolders.map((folder) {
-                final isSelected = _selectedNextcloudFolders.contains(folder.path);
+                final isSelected = _nextcloudFolderIsIncluded(folder.path);
                 final displayName = folder.path.isEmpty
                     ? localizations.nextcloudShareRoot
                     : folder.name;
@@ -1347,11 +1378,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                       : null,
                   onChanged: (value) {
                     setState(() {
-                      if (value ?? false) {
-                        _selectedNextcloudFolders.add(folder.path);
-                      } else {
-                        _selectedNextcloudFolders.remove(folder.path);
-                      }
+                      _toggleNextcloudFolder(folder.path, value ?? false);
                     });
                   },
                 );
@@ -1411,6 +1438,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         _selectedNextcloudFolders = _selectedNextcloudFolders
             .where(availablePaths.contains)
             .toSet();
+        _excludedNextcloudFolders = _excludedNextcloudFolders
+            .where(availablePaths.contains)
+            .toSet();
       });
     } catch (e) {
       if (!mounted) {
@@ -1435,31 +1465,40 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       url: url,
       folderSyncMode: _nextcloudFolderSyncMode,
       selectedFolders: _selectedNextcloudFolders.toList()..sort(),
+      excludedFolders: _excludedNextcloudFolders.toList()..sort(),
     );
+  }
+
+  static bool _sortedFolderSetsEqual(Set<String> left, Set<String> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    final leftSorted = left.toList()..sort();
+    final rightSorted = right.toList()..sort();
+    for (var index = 0; index < leftSorted.length; index++) {
+      if (leftSorted[index] != rightSorted[index]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool _nextcloudConfigsEqual(
     NextcloudSourceConfig left,
     NextcloudSourceConfig right,
   ) {
-    final leftFolders = left.normalizedSelectedFolders.toList()..sort();
-    final rightFolders = right.normalizedSelectedFolders.toList()..sort();
-
     if (left.url != right.url || left.folderSyncMode != right.folderSyncMode) {
       return false;
     }
 
-    if (leftFolders.length != rightFolders.length) {
-      return false;
-    }
-
-    for (var index = 0; index < leftFolders.length; index++) {
-      if (leftFolders[index] != rightFolders[index]) {
-        return false;
-      }
-    }
-
-    return true;
+    return _sortedFolderSetsEqual(
+          left.normalizedSelectedFolders,
+          right.normalizedSelectedFolders,
+        ) &&
+        _sortedFolderSetsEqual(
+          left.normalizedExcludedFolders,
+          right.normalizedExcludedFolders,
+        );
   }
 
   SmbSourceConfig _buildSmbSourceConfig() {
@@ -1472,13 +1511,11 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       password: _smbPasswordController.text,
       folderSyncMode: _smbFolderSyncMode,
       selectedFolders: _selectedSmbFolders.toList()..sort(),
+      excludedFolders: _excludedSmbFolders.toList()..sort(),
     );
   }
 
   bool _smbConfigsEqual(SmbSourceConfig left, SmbSourceConfig right) {
-    final leftFolders = left.normalizedSelectedFolders.toList()..sort();
-    final rightFolders = right.normalizedSelectedFolders.toList()..sort();
-
     if (left.host != right.host ||
         left.share != right.share ||
         left.path != right.path ||
@@ -1489,17 +1526,14 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       return false;
     }
 
-    if (leftFolders.length != rightFolders.length) {
-      return false;
-    }
-
-    for (var index = 0; index < leftFolders.length; index++) {
-      if (leftFolders[index] != rightFolders[index]) {
-        return false;
-      }
-    }
-
-    return true;
+    return _sortedFolderSetsEqual(
+          left.normalizedSelectedFolders,
+          right.normalizedSelectedFolders,
+        ) &&
+        _sortedFolderSetsEqual(
+          left.normalizedExcludedFolders,
+          right.normalizedExcludedFolders,
+        );
   }
 
   Widget _buildSmbSettings() {
@@ -1661,6 +1695,32 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
 
+  bool _smbFolderIsIncluded(String path) {
+    return folderIsIncluded(
+      path,
+      selectedFolders: _selectedSmbFolders,
+      excludedFolders: _excludedSmbFolders,
+      syncAllFolders: false,
+    );
+  }
+
+  /// Checking a folder syncs its whole subtree; unchecking opts it back out.
+  /// Explicit entries stay minimal — a folder already covered by a selected
+  /// ancestor doesn't get its own entry.
+  void _toggleSmbFolder(String path, bool include) {
+    if (include) {
+      _excludedSmbFolders.remove(path);
+      if (!_smbFolderIsIncluded(path)) {
+        _selectedSmbFolders.add(path);
+      }
+    } else {
+      _selectedSmbFolders.remove(path);
+      if (_smbFolderIsIncluded(path)) {
+        _excludedSmbFolders.add(path);
+      }
+    }
+  }
+
   Widget _buildSmbFolderSelection() {
     final localizations = AppLocalizations.of(context)!;
 
@@ -1710,7 +1770,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             ),
             child: Column(
               children: _availableSmbFolders.map((folder) {
-                final isSelected = _selectedSmbFolders.contains(folder.path);
+                final isSelected = _smbFolderIsIncluded(folder.path);
                 final displayName = folder.path.isEmpty
                     ? localizations.smbShareRoot
                     : folder.name;
@@ -1729,11 +1789,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                       : null,
                   onChanged: (value) {
                     setState(() {
-                      if (value ?? false) {
-                        _selectedSmbFolders.add(folder.path);
-                      } else {
-                        _selectedSmbFolders.remove(folder.path);
-                      }
+                      _toggleSmbFolder(folder.path, value ?? false);
                     });
                   },
                 );
@@ -1791,6 +1847,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         _availableSmbFolders = folders;
         _selectedSmbFolders =
             _selectedSmbFolders.where(availablePaths.contains).toSet();
+        _excludedSmbFolders =
+            _excludedSmbFolders.where(availablePaths.contains).toSet();
       });
     } catch (e) {
       if (!mounted) {
