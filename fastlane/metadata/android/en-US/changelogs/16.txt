@@ -1,0 +1,2 @@
+New features:
+• Selected folders now sync their subfolders too — a subfolder added to a folder you already sync is picked up automatically. You can uncheck individual subfolders to leave them out.
