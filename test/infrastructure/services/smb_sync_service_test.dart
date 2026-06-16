@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:open_photo_frame/domain/interfaces/storage_provider.dart';
+import 'package:open_photo_frame/infrastructure/services/image_converter.dart';
 import 'package:open_photo_frame/infrastructure/services/smb_remote_client.dart';
 import 'package:open_photo_frame/infrastructure/services/smb_source_config.dart';
 import 'package:open_photo_frame/infrastructure/services/smb_sync_service.dart';
@@ -60,6 +61,27 @@ class FakeSmbRemoteClient implements SmbRemoteClient {
   @override
   Future<void> close() async {
     closed = true;
+  }
+}
+
+/// Stand-in for the real (platform-channel-backed) converter. Writes a JPEG
+/// placeholder so the on-disk result looks like a successful transcode.
+class FakeImageConverter implements ImageConverter {
+  FakeImageConverter({this.succeed = true});
+
+  final bool succeed;
+  final List<String> targets = [];
+
+  @override
+  Future<bool> convertToJpeg(File sourceFile, String targetPath) async {
+    targets.add(targetPath);
+    if (!succeed) {
+      return false;
+    }
+    final file = File(targetPath);
+    await file.parent.create(recursive: true);
+    await file.writeAsBytes(utf8.encode('jpeg:${sourceFile.path}'));
+    return true;
   }
 }
 
@@ -368,6 +390,100 @@ void main() {
       expect(client.readDirCalls, ['/photos/albums/2024']);
       expect(client.downloadedPaths, ['/photos/albums/2024/pic.jpg']);
       expect(File('${tempDir.path}/pic.jpg').existsSync(), isTrue);
+    });
+
+    test('sync converts HEIC images to JPEG and re-uses them next run', () async {
+      final modifiedAt = DateTime(2026, 5, 18, 12, 0);
+      final converter = FakeImageConverter();
+      final client = FakeSmbRemoteClient(
+        directories: {
+          '/photos': [
+            SmbRemoteEntry(
+              path: '/photos/apple.heic',
+              name: 'apple.heic',
+              isDirectory: false,
+              modifiedAt: modifiedAt,
+            ),
+          ],
+        },
+      );
+
+      final service = SmbSyncService.fromConfig(
+        const SmbSourceConfig(host: '192.168.1.10', share: 'photos'),
+        storageProvider,
+        clientFactory: factoryFor(client),
+        imageConverter: converter,
+      );
+
+      await service.sync();
+
+      final jpegFile = File('${tempDir.path}/apple.jpg');
+      expect(await jpegFile.exists(), isTrue);
+      expect(File('${tempDir.path}/apple.heic').existsSync(), isFalse);
+      expect(File('${tempDir.path}/apple.jpg.part').existsSync(), isFalse);
+      expect(converter.targets, [jpegFile.path]);
+      expect(client.downloadedPaths, ['/photos/apple.heic']);
+      expect(await jpegFile.lastModified(), modifiedAt);
+
+      // The converted JPEG already satisfies the remote file, so a second sync
+      // must neither re-download nor re-convert it.
+      await service.sync();
+      expect(client.downloadedPaths, ['/photos/apple.heic']);
+      expect(converter.targets, [jpegFile.path]);
+    });
+
+    test('sync does not prune converted JPEGs as orphans', () async {
+      final converter = FakeImageConverter();
+      final client = FakeSmbRemoteClient(
+        directories: {
+          '/photos': const [
+            SmbRemoteEntry(
+              path: '/photos/apple.heic',
+              name: 'apple.heic',
+              isDirectory: false,
+            ),
+          ],
+        },
+      );
+
+      final service = SmbSyncService.fromConfig(
+        const SmbSourceConfig(host: '192.168.1.10', share: 'photos'),
+        storageProvider,
+        clientFactory: factoryFor(client),
+        imageConverter: converter,
+      );
+
+      await service.sync(deleteOrphanedFiles: true);
+
+      expect(File('${tempDir.path}/apple.jpg').existsSync(), isTrue);
+    });
+
+    test('sync skips HEIC files whose conversion fails', () async {
+      final converter = FakeImageConverter(succeed: false);
+      final client = FakeSmbRemoteClient(
+        directories: {
+          '/photos': const [
+            SmbRemoteEntry(
+              path: '/photos/apple.heic',
+              name: 'apple.heic',
+              isDirectory: false,
+            ),
+          ],
+        },
+      );
+
+      final service = SmbSyncService.fromConfig(
+        const SmbSourceConfig(host: '192.168.1.10', share: 'photos'),
+        storageProvider,
+        clientFactory: factoryFor(client),
+        imageConverter: converter,
+      );
+
+      await service.sync();
+
+      expect(File('${tempDir.path}/apple.jpg').existsSync(), isFalse);
+      expect(File('${tempDir.path}/apple.jpg.part').existsSync(), isFalse);
+      expect(client.downloadedPaths, ['/photos/apple.heic']);
     });
   });
 }

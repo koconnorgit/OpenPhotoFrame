@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import '../../domain/interfaces/sync_provider.dart';
 import '../../domain/interfaces/storage_provider.dart';
+import 'image_converter.dart';
 import 'smb_remote_client.dart';
 import 'smb_source_config.dart';
 
@@ -42,6 +43,7 @@ class SmbSyncService implements SyncProvider {
   final StorageProvider _storageProvider;
   final SmbRemoteClientFactory _clientFactory;
   final SmbSourceConfig _sourceConfig;
+  final ImageConverter _imageConverter;
   final _log = Logger('SmbSyncService');
 
   SmbSyncService({
@@ -54,15 +56,18 @@ class SmbSyncService implements SyncProvider {
     this.password = '',
     SmbRemoteClientFactory clientFactory = createSmbConnectRemoteClient,
     SmbSourceConfig sourceConfig = const SmbSourceConfig(),
+    ImageConverter imageConverter = const FlutterImageConverter(),
   })  : _storageProvider = storageProvider,
         _clientFactory = clientFactory,
-        _sourceConfig = sourceConfig;
+        _sourceConfig = sourceConfig,
+        _imageConverter = imageConverter;
 
   /// Builds a service from a stored [SmbSourceConfig].
   factory SmbSyncService.fromConfig(
     SmbSourceConfig config,
     StorageProvider storageProvider, {
     SmbRemoteClientFactory clientFactory = createSmbConnectRemoteClient,
+    ImageConverter imageConverter = const FlutterImageConverter(),
   }) {
     return SmbSyncService(
       host: config.host,
@@ -74,6 +79,7 @@ class SmbSyncService implements SyncProvider {
       storageProvider: storageProvider,
       clientFactory: clientFactory,
       sourceConfig: config,
+      imageConverter: imageConverter,
     );
   }
 
@@ -196,19 +202,21 @@ class SmbSyncService implements SyncProvider {
 
       final pendingDownloads = <_RemoteImage>[];
       for (final remoteFile in remoteFiles) {
-        final localFile = File('${localDir.path}/${remoteFile.relativePath}');
+        final localFile = File('${localDir.path}/${remoteFile.localRelativePath}');
         if (!await localFile.exists()) {
           pendingDownloads.add(remoteFile);
         }
       }
 
+      // Orphan pruning compares against the *local* paths, which differ from the
+      // remote name for HEIC files that are converted to JPEG on download.
       final remoteRelativePaths = remoteFiles
-          .map((remoteFile) => remoteFile.relativePath)
+          .map((remoteFile) => remoteFile.localRelativePath)
           .toSet();
 
       for (var index = 0; index < pendingDownloads.length; index++) {
         final remoteFile = pendingDownloads[index];
-        final localFile = File('${localDir.path}/${remoteFile.relativePath}');
+        final localFile = File('${localDir.path}/${remoteFile.localRelativePath}');
 
         _log.info(
           'Downloading ${index + 1}/${pendingDownloads.length}...',
@@ -218,6 +226,34 @@ class SmbSyncService implements SyncProvider {
         final partFile = File('${localFile.path}.part');
         await partFile.parent.create(recursive: true);
         await client.downloadFile(remoteFile.remotePath, partFile.path);
+
+        if (remoteFile.needsConversion) {
+          final converted = await _imageConverter.convertToJpeg(
+            partFile,
+            localFile.path,
+          );
+          try {
+            await partFile.delete();
+          } catch (e) {
+            _log.warning('Could not remove temp file ${partFile.path}: $e');
+          }
+          if (!converted) {
+            _log.warning(
+              'Skipping ${remoteFile.relativePath}: HEIC conversion failed',
+            );
+            continue;
+          }
+          if (remoteFile.modifiedAt != null) {
+            try {
+              await localFile.setLastModified(remoteFile.modifiedAt!);
+            } catch (e) {
+              _log.warning(
+                'Could not set modification time for ${remoteFile.localRelativePath}: $e',
+              );
+            }
+          }
+          continue;
+        }
 
         if (remoteFile.modifiedAt != null) {
           try {
@@ -254,7 +290,25 @@ class SmbSyncService implements SyncProvider {
     return lower.endsWith('.jpg') ||
            lower.endsWith('.jpeg') ||
            lower.endsWith('.png') ||
-           lower.endsWith('.webp');
+           lower.endsWith('.webp') ||
+           _isHeic(name);
+  }
+
+  /// HEIC/HEIF files cannot be decoded by Flutter's image stack, so they are
+  /// transcoded to JPEG on download.
+  static bool _isHeic(String name) {
+    final lower = name.toLowerCase();
+    return lower.endsWith('.heic') || lower.endsWith('.heif');
+  }
+
+  /// Local path a remote image lands at. HEIC/HEIF sources get a `.jpg`
+  /// extension because they are converted during download.
+  static String _localRelativePathFor(String remoteRelativePath) {
+    if (!_isHeic(remoteRelativePath)) {
+      return remoteRelativePath;
+    }
+    final dotIndex = remoteRelativePath.lastIndexOf('.');
+    return '${remoteRelativePath.substring(0, dotIndex)}.jpg';
   }
 
   Future<List<_RemoteImage>> _collectRemoteImages(
@@ -286,6 +340,8 @@ class SmbSyncService implements SyncProvider {
         _RemoteImage(
           remotePath: entry.path,
           relativePath: entryRelativePath,
+          localRelativePath: _localRelativePathFor(entryRelativePath),
+          needsConversion: _isHeic(entry.name),
           modifiedAt: entry.modifiedAt,
         ),
       );
@@ -385,11 +441,23 @@ class _RemoteImage {
   const _RemoteImage({
     required this.remotePath,
     required this.relativePath,
+    required this.localRelativePath,
+    required this.needsConversion,
     this.modifiedAt,
   });
 
   final String remotePath;
+
+  /// Path of the file on the remote share, relative to the base directory.
   final String relativePath;
+
+  /// Path the file is stored at locally; matches [relativePath] except for
+  /// HEIC/HEIF sources, which are converted to `.jpg`.
+  final String localRelativePath;
+
+  /// Whether the downloaded bytes need transcoding to JPEG before display.
+  final bool needsConversion;
+
   final DateTime? modifiedAt;
 }
 
