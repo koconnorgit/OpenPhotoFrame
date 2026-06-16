@@ -1,0 +1,2 @@
+New features:
+• HEIC/HEIF photos from Apple devices are now supported on SMB shares — they are converted to JPEG automatically during sync
