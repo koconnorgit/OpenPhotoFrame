@@ -1,0 +1,2 @@
+New features:
+• Optional outdoor temperature under the clock, read live from Home Assistant. Enable it in Settings → Home Assistant and enter your server URL, a long-lived access token, and the temperature sensor's entity ID — a Test Connection button confirms it works.
