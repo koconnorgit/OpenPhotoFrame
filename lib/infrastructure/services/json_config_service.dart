@@ -387,6 +387,39 @@ class JsonConfigService extends ConfigProvider {
     _config['clock_date_separate_line'] = value;
   }
 
+  // Home Assistant settings (temperature shown under the clock)
+  @override
+  bool get showTemperature => _config['show_temperature'] ?? false;
+
+  @override
+  set showTemperature(bool value) {
+    _config['show_temperature'] = value;
+  }
+
+  @override
+  String get homeAssistantUrl => _config['home_assistant_url'] ?? '';
+
+  @override
+  set homeAssistantUrl(String value) {
+    _config['home_assistant_url'] = value;
+  }
+
+  @override
+  String get homeAssistantToken => _config['home_assistant_token'] ?? '';
+
+  @override
+  set homeAssistantToken(String value) {
+    _config['home_assistant_token'] = value;
+  }
+
+  @override
+  String get homeAssistantEntityId => _config['home_assistant_entity_id'] ?? '';
+
+  @override
+  set homeAssistantEntityId(String value) {
+    _config['home_assistant_entity_id'] = value;
+  }
+
   // Display schedule settings (day/night mode)
   @override
   bool get scheduleEnabled => _config['schedule_enabled'] ?? false;

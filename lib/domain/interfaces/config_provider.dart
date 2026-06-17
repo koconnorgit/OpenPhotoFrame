@@ -67,6 +67,19 @@ abstract class ConfigProvider extends ChangeNotifier {
   bool get clockDateSeparateLine; // Put the weekday on its own line above the date
   set clockDateSeparateLine(bool value);
 
+  // Home Assistant settings (temperature shown under the clock)
+  bool get showTemperature; // Show a temperature line from Home Assistant
+  set showTemperature(bool value);
+
+  String get homeAssistantUrl; // Base URL, e.g. http://homeassistant.local:8123
+  set homeAssistantUrl(String value);
+
+  String get homeAssistantToken; // Long-lived access token
+  set homeAssistantToken(String value);
+
+  String get homeAssistantEntityId; // Temperature sensor entity, e.g. sensor.outside_temperature
+  set homeAssistantEntityId(String value);
+
   // Display schedule settings (day/night mode)
   bool get scheduleEnabled; // Enable day/night schedule
   set scheduleEnabled(bool value);

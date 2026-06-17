@@ -130,6 +130,30 @@ class FakeConfigProvider extends ChangeNotifier implements ConfigProvider {
   set clockDateSeparateLine(bool value) {}
 
   @override
+  bool get showTemperature => false;
+
+  @override
+  set showTemperature(bool value) {}
+
+  @override
+  String get homeAssistantUrl => '';
+
+  @override
+  set homeAssistantUrl(String value) {}
+
+  @override
+  String get homeAssistantToken => '';
+
+  @override
+  set homeAssistantToken(String value) {}
+
+  @override
+  String get homeAssistantEntityId => '';
+
+  @override
+  set homeAssistantEntityId(String value) {}
+
+  @override
   bool get scheduleEnabled => false;
 
   @override

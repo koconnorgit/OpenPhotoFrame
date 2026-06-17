@@ -37,7 +37,34 @@
   "clockRandomPositionSubtitle": "Move the clock to a random corner on each photo change",
   "size": "Size",
   "position": "Position",
-  
+
+  "sectionHomeAssistant": "Home Assistant",
+  "showTemperature": "Show Temperature",
+  "showTemperatureSubtitle": "Display a temperature reading from Home Assistant under the clock",
+  "homeAssistantUrl": "Server URL",
+  "homeAssistantUrlHint": "http://homeassistant.local:8123",
+  "homeAssistantToken": "Long-Lived Access Token",
+  "homeAssistantTokenHint": "Profile → Security → Long-lived access tokens",
+  "homeAssistantEntityId": "Temperature Entity ID",
+  "homeAssistantEntityIdHint": "sensor.outside_temperature",
+  "homeAssistantTest": "Test Connection",
+  "homeAssistantTestSuccess": "Connected. Current value: {value}",
+  "@homeAssistantTestSuccess": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "homeAssistantTestFailed": "Failed: {error}",
+  "@homeAssistantTestFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
   "sectionPhotoInfo": "Photo Information",
   "showPhotoInfo": "Show Photo Info",
   "showPhotoInfoSubtitle": "Display date and location on slideshow",

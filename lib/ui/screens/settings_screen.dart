@@ -14,6 +14,7 @@ import '../../infrastructure/services/storage_info_service.dart';
 import '../../infrastructure/repositories/hybrid_photo_repository.dart';
 import '../../infrastructure/services/photo_service.dart';
 import '../../infrastructure/services/folder_selection.dart';
+import '../../infrastructure/services/home_assistant_service.dart';
 import '../../infrastructure/services/nextcloud_source_config.dart';
 import '../../infrastructure/services/nextcloud_sync_service.dart';
 import '../../infrastructure/services/smb_source_config.dart';
@@ -64,7 +65,16 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late bool _showClockDate;
   late bool _clockDateCompact;
   late bool _clockDateSeparateLine;
-  
+
+  // Home Assistant settings (temperature under the clock)
+  late bool _showTemperature;
+  late TextEditingController _homeAssistantUrlController;
+  late TextEditingController _homeAssistantTokenController;
+  late TextEditingController _homeAssistantEntityController;
+  bool _isTestingHomeAssistant = false;
+  String? _homeAssistantTestResult; // Message shown after a test
+  bool? _homeAssistantTestSuccess; // null = untested, true/false = last result
+
   // Photo info settings
   late bool _showPhotoInfo;
   late String _photoInfoPosition;
@@ -167,7 +177,16 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _showClockDate = config.showClockDate;
     _clockDateCompact = config.clockDateCompact;
     _clockDateSeparateLine = config.clockDateSeparateLine;
-    
+
+    // Home Assistant settings
+    _showTemperature = config.showTemperature;
+    _homeAssistantUrlController =
+        TextEditingController(text: config.homeAssistantUrl);
+    _homeAssistantTokenController =
+        TextEditingController(text: config.homeAssistantToken);
+    _homeAssistantEntityController =
+        TextEditingController(text: config.homeAssistantEntityId);
+
     // Photo info settings
     _showPhotoInfo = config.showPhotoInfo;
     _photoInfoPosition = config.photoInfoPosition;
@@ -310,6 +329,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     WidgetsBinding.instance.removeObserver(this);
     _slideDurationController.dispose();
     _nextcloudUrlController.dispose();
+    _homeAssistantUrlController.dispose();
+    _homeAssistantTokenController.dispose();
+    _homeAssistantEntityController.dispose();
     _smbHostController.dispose();
     _smbShareController.dispose();
     _smbPathController.dispose();
@@ -381,7 +403,13 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     config.showClockDate = _showClockDate;
     config.clockDateCompact = _clockDateCompact;
     config.clockDateSeparateLine = _clockDateSeparateLine;
-    
+
+    // Home Assistant settings
+    config.showTemperature = _showTemperature;
+    config.homeAssistantUrl = _homeAssistantUrlController.text.trim();
+    config.homeAssistantToken = _homeAssistantTokenController.text.trim();
+    config.homeAssistantEntityId = _homeAssistantEntityController.text.trim();
+
     // Photo info settings
     config.showPhotoInfo = _showPhotoInfo;
     config.photoInfoPosition = _photoInfoPosition;
@@ -572,7 +600,29 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 16),
-          
+
+          // === HOME ASSISTANT SETTINGS ===
+          _buildSectionHeader(
+              AppLocalizations.of(context)!.sectionHomeAssistant),
+          const SizedBox(height: 8),
+
+          SwitchListTile(
+            title: Text(AppLocalizations.of(context)!.showTemperature),
+            subtitle:
+                Text(AppLocalizations.of(context)!.showTemperatureSubtitle),
+            secondary: const Icon(Icons.thermostat),
+            value: _showTemperature,
+            onChanged: (value) {
+              setState(() => _showTemperature = value);
+            },
+          ),
+
+          if (_showTemperature) _buildHomeAssistantSettings(),
+
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
+
           // === PHOTO INFO SETTINGS ===
           _buildSectionHeader(AppLocalizations.of(context)!.sectionPhotoInfo),
           const SizedBox(height: 8),
@@ -783,6 +833,124 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         fontWeight: FontWeight.bold,
       ),
     );
+  }
+
+  /// URL / token / entity inputs plus a "test connection" button, shown when the
+  /// temperature feature is enabled.
+  Widget _buildHomeAssistantSettings() {
+    final localizations = AppLocalizations.of(context)!;
+
+    // Editing any field invalidates the last test result.
+    void onFieldChanged(_) {
+      if (_homeAssistantTestResult != null) {
+        setState(() {
+          _homeAssistantTestResult = null;
+          _homeAssistantTestSuccess = null;
+        });
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 8),
+          TextField(
+            controller: _homeAssistantUrlController,
+            decoration: InputDecoration(
+              labelText: localizations.homeAssistantUrl,
+              hintText: localizations.homeAssistantUrlHint,
+              prefixIcon: const Icon(Icons.home),
+              border: const OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            onChanged: onFieldChanged,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _homeAssistantTokenController,
+            decoration: InputDecoration(
+              labelText: localizations.homeAssistantToken,
+              hintText: localizations.homeAssistantTokenHint,
+              prefixIcon: const Icon(Icons.key),
+              border: const OutlineInputBorder(),
+            ),
+            obscureText: true,
+            autocorrect: false,
+            enableSuggestions: false,
+            onChanged: onFieldChanged,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _homeAssistantEntityController,
+            decoration: InputDecoration(
+              labelText: localizations.homeAssistantEntityId,
+              hintText: localizations.homeAssistantEntityIdHint,
+              prefixIcon: const Icon(Icons.sensors),
+              border: const OutlineInputBorder(),
+            ),
+            autocorrect: false,
+            onChanged: onFieldChanged,
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _isTestingHomeAssistant ? null : _testHomeAssistant,
+            icon: _isTestingHomeAssistant
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.wifi_tethering),
+            label: Text(localizations.homeAssistantTest),
+          ),
+          if (_homeAssistantTestResult != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _homeAssistantTestResult!,
+              style: TextStyle(
+                color: _homeAssistantTestSuccess == true
+                    ? Colors.green
+                    : Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Fetch the configured sensor once and report the value (or the error).
+  Future<void> _testHomeAssistant() async {
+    final localizations = AppLocalizations.of(context)!;
+    setState(() {
+      _isTestingHomeAssistant = true;
+      _homeAssistantTestResult = null;
+      _homeAssistantTestSuccess = null;
+    });
+
+    final service = HomeAssistantService();
+    try {
+      final result = await service.fetchState(
+        baseUrl: _homeAssistantUrlController.text.trim(),
+        token: _homeAssistantTokenController.text.trim(),
+        entityId: _homeAssistantEntityController.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _homeAssistantTestSuccess = result.isSuccess;
+        _homeAssistantTestResult = result.isSuccess
+            ? localizations.homeAssistantTestSuccess(result.value!)
+            : localizations.homeAssistantTestFailed(result.error!);
+      });
+    } finally {
+      service.dispose();
+      if (mounted) {
+        setState(() => _isTestingHomeAssistant = false);
+      }
+    }
   }
   
   /// Slide duration is entered directly as a number of seconds, so very short

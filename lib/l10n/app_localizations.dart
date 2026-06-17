@@ -302,6 +302,78 @@ abstract class AppLocalizations {
   /// **'Position'**
   String get position;
 
+  /// No description provided for @sectionHomeAssistant.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant'**
+  String get sectionHomeAssistant;
+
+  /// No description provided for @showTemperature.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Temperature'**
+  String get showTemperature;
+
+  /// No description provided for @showTemperatureSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Display a temperature reading from Home Assistant under the clock'**
+  String get showTemperatureSubtitle;
+
+  /// No description provided for @homeAssistantUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get homeAssistantUrl;
+
+  /// No description provided for @homeAssistantUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'http://homeassistant.local:8123'**
+  String get homeAssistantUrlHint;
+
+  /// No description provided for @homeAssistantToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-Lived Access Token'**
+  String get homeAssistantToken;
+
+  /// No description provided for @homeAssistantTokenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile → Security → Long-lived access tokens'**
+  String get homeAssistantTokenHint;
+
+  /// No description provided for @homeAssistantEntityId.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature Entity ID'**
+  String get homeAssistantEntityId;
+
+  /// No description provided for @homeAssistantEntityIdHint.
+  ///
+  /// In en, this message translates to:
+  /// **'sensor.outside_temperature'**
+  String get homeAssistantEntityIdHint;
+
+  /// No description provided for @homeAssistantTest.
+  ///
+  /// In en, this message translates to:
+  /// **'Test Connection'**
+  String get homeAssistantTest;
+
+  /// No description provided for @homeAssistantTestSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected. Current value: {value}'**
+  String homeAssistantTestSuccess(String value);
+
+  /// No description provided for @homeAssistantTestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed: {error}'**
+  String homeAssistantTestFailed(String error);
+
   /// No description provided for @sectionPhotoInfo.
   ///
   /// In en, this message translates to:

@@ -37,7 +37,34 @@
   "clockRandomPositionSubtitle": "Uhr bei jedem Fotowechsel in eine zufällige Ecke verschieben",
   "size": "Größe",
   "position": "Position",
-  
+
+  "sectionHomeAssistant": "Home Assistant",
+  "showTemperature": "Temperatur anzeigen",
+  "showTemperatureSubtitle": "Zeigt eine Temperatur aus Home Assistant unter der Uhr an",
+  "homeAssistantUrl": "Server-URL",
+  "homeAssistantUrlHint": "http://homeassistant.local:8123",
+  "homeAssistantToken": "Langlebiges Zugriffstoken",
+  "homeAssistantTokenHint": "Profil → Sicherheit → Langlebige Zugriffstoken",
+  "homeAssistantEntityId": "Temperatur-Entitäts-ID",
+  "homeAssistantEntityIdHint": "sensor.aussentemperatur",
+  "homeAssistantTest": "Verbindung testen",
+  "homeAssistantTestSuccess": "Verbunden. Aktueller Wert: {value}",
+  "@homeAssistantTestSuccess": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "homeAssistantTestFailed": "Fehlgeschlagen: {error}",
+  "@homeAssistantTestFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+
   "sectionPhotoInfo": "Foto-Informationen",
   "showPhotoInfo": "Foto-Info anzeigen",
   "showPhotoInfoSubtitle": "Datum und Ort auf der Diashow anzeigen",

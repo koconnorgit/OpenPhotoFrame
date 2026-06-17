@@ -10,6 +10,7 @@ class ClockOverlay extends StatefulWidget {
   final bool showDate; // Show day/date in a smaller font under the time
   final bool compactDate; // Use abbreviated day/month names (e.g. Wed, Jun 10)
   final bool separateDateLine; // Put the weekday on its own line above the date
+  final String? temperature; // Optional temperature line (e.g. "21.3°C"), null = hidden
 
   const ClockOverlay({
     super.key,
@@ -18,6 +19,7 @@ class ClockOverlay extends StatefulWidget {
     this.showDate = false,
     this.compactDate = false,
     this.separateDateLine = false,
+    this.temperature,
   });
 
   @override
@@ -168,22 +170,30 @@ class _ClockOverlayState extends State<ClockOverlay> {
       ),
     );
 
-    final Widget content = widget.showDate
+    // Smaller lines (date, temperature) share the same understated styling.
+    Text smallLine(String text) => Text(
+          text,
+          style: TextStyle(
+            fontSize: _dateFontSize,
+            fontWeight: FontWeight.w300,
+            color: Colors.white,
+            shadows: _shadows,
+          ),
+        );
+
+    final hasTemperature =
+        widget.temperature != null && widget.temperature!.isNotEmpty;
+
+    // Drop into a column whenever there's anything beneath the time.
+    final Widget content = (widget.showDate || hasTemperature)
         ? Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: _crossAxisAlignment,
             children: [
               timeText,
-              for (final line in _dateLines(_now))
-                Text(
-                  line,
-                  style: TextStyle(
-                    fontSize: _dateFontSize,
-                    fontWeight: FontWeight.w300,
-                    color: Colors.white,
-                    shadows: _shadows,
-                  ),
-                ),
+              if (widget.showDate)
+                for (final line in _dateLines(_now)) smallLine(line),
+              if (hasTemperature) smallLine(widget.temperature!),
             ],
           )
         : timeText;

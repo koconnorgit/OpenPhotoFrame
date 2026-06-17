@@ -115,6 +115,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get position => 'Position';
 
   @override
+  String get sectionHomeAssistant => 'Home Assistant';
+
+  @override
+  String get showTemperature => 'Show Temperature';
+
+  @override
+  String get showTemperatureSubtitle =>
+      'Display a temperature reading from Home Assistant under the clock';
+
+  @override
+  String get homeAssistantUrl => 'Server URL';
+
+  @override
+  String get homeAssistantUrlHint => 'http://homeassistant.local:8123';
+
+  @override
+  String get homeAssistantToken => 'Long-Lived Access Token';
+
+  @override
+  String get homeAssistantTokenHint =>
+      'Profile → Security → Long-lived access tokens';
+
+  @override
+  String get homeAssistantEntityId => 'Temperature Entity ID';
+
+  @override
+  String get homeAssistantEntityIdHint => 'sensor.outside_temperature';
+
+  @override
+  String get homeAssistantTest => 'Test Connection';
+
+  @override
+  String homeAssistantTestSuccess(String value) {
+    return 'Connected. Current value: $value';
+  }
+
+  @override
+  String homeAssistantTestFailed(String error) {
+    return 'Failed: $error';
+  }
+
+  @override
   String get sectionPhotoInfo => 'Photo Information';
 
   @override

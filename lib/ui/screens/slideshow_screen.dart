@@ -14,6 +14,7 @@ import '../../infrastructure/services/photo_service.dart';
 import '../../infrastructure/services/native_display_controller.dart';
 import '../../infrastructure/services/native_screen_control_service.dart';
 import '../../infrastructure/services/geocoding_service.dart';
+import '../../infrastructure/services/home_assistant_service.dart';
 import '../../infrastructure/services/keep_alive_service.dart';
 import '../../domain/models/photo_entry.dart';
 import '../widgets/photo_slide.dart';
@@ -25,6 +26,10 @@ import 'settings_screen.dart';
 
 final _log = Logger('SlideshowScreen');
 final _geocodingService = GeocodingService();
+final _homeAssistantService = HomeAssistantService();
+
+/// How often to refresh the Home Assistant temperature reading.
+const Duration _temperatureRefreshInterval = Duration(minutes: 5);
 
 /// Convert screen orientation setting to DeviceOrientation list
 List<DeviceOrientation> _getDeviceOrientations(String orientation) {
@@ -94,6 +99,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
   // Current photo location name (from geocoding)
   String? _currentLocationName;
 
+  // Current temperature from Home Assistant (shown under the clock), null = hidden
+  String? _currentTemperature;
+  Timer? _temperatureTimer;
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +120,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initService();
       _initKeepAliveService();
+      _startTemperaturePolling();
       _showStartupConfigNoticeIfNeeded();
       // Schedule init is now handled reactively in build() via _updateDisplaySchedule()
     });
@@ -187,6 +197,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     print('⏸️ App paused - stopping timers and wakelock');
     _timer?.cancel();
     _scheduleTimer?.cancel();
+    _temperatureTimer?.cancel();
     WakelockPlus.disable();
   }
   
@@ -202,6 +213,9 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     if (_currentPhoto != null) {
       _startTimer();
     }
+
+    // Resume temperature polling (with an immediate refresh)
+    _startTemperaturePolling();
     
     // IMPORTANT: Always re-apply schedule state when resuming
     // This ensures correct state after wake-ups (even if timer hasn't fired yet)
@@ -412,6 +426,47 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
           _isLoading = false;
         });
       }
+    }
+  }
+
+  /// Begin periodically refreshing the Home Assistant temperature.
+  ///
+  /// Runs a single immediate fetch then repeats on [_temperatureRefreshInterval].
+  /// The tick itself checks whether the feature is enabled, so this is safe to
+  /// start unconditionally; toggling it off just stops new readings showing.
+  void _startTemperaturePolling() {
+    _temperatureTimer?.cancel();
+    _refreshTemperature();
+    _temperatureTimer = Timer.periodic(
+      _temperatureRefreshInterval,
+      (_) => _refreshTemperature(),
+    );
+  }
+
+  /// Fetch the configured temperature sensor and update the overlay.
+  ///
+  /// Clears the value when the feature is disabled or unconfigured so a stale
+  /// reading never lingers after the user turns it off.
+  Future<void> _refreshTemperature() async {
+    if (!mounted) return;
+    final config = context.read<ConfigProvider>();
+
+    if (!config.showTemperature) {
+      if (_currentTemperature != null) {
+        setState(() => _currentTemperature = null);
+      }
+      return;
+    }
+
+    final temperature = await _homeAssistantService.getTemperature(
+      baseUrl: config.homeAssistantUrl,
+      token: config.homeAssistantToken,
+      entityId: config.homeAssistantEntityId,
+    );
+
+    // A failed fetch keeps the last good reading rather than blinking out.
+    if (mounted && temperature != null && temperature != _currentTemperature) {
+      setState(() => _currentTemperature = temperature);
     }
   }
 
@@ -666,6 +721,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     _photosSubscription?.cancel();
     _scheduleSubscription?.cancel();
     _scheduleTimer?.cancel();
+    _temperatureTimer?.cancel();
     for (var slide in _slides) {
       slide.controller.dispose();
     }
@@ -768,15 +824,18 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
               final clockPosition = config.clockRandomPosition
                   ? _clockCorner
                   : config.clockPosition;
+              final temperature =
+                  config.showTemperature ? _currentTemperature : null;
               return ClockOverlay(
                 key: ValueKey('clock_${config.clockSize}_${clockPosition}_'
                     '${config.showClockDate}_${config.clockDateCompact}_'
-                    '${config.clockDateSeparateLine}'),
+                    '${config.clockDateSeparateLine}_$temperature'),
                 size: config.clockSize,
                 position: clockPosition,
                 showDate: config.showClockDate,
                 compactDate: config.clockDateCompact,
                 separateDateLine: config.clockDateSeparateLine,
+                temperature: temperature,
               );
             }),
 
@@ -861,6 +920,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     } else {
       KeepAliveService.stopService();
     }
+
+    // Pick up changes to the temperature feature promptly (e.g. toggled on, or
+    // URL/token/entity edited in settings) rather than waiting for the next tick.
+    _refreshTemperature();
   }
 }
 
